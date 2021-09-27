@@ -130,3 +130,4 @@ dmypy.json
 .DS_Store
 .idea/bslib.iml
 .idea/csv-plugin.xml
+.idea/inspectionProfiles/profiles_settings.xml
