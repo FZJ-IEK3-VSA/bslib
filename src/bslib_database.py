@@ -1,6 +1,5 @@
 """This files contains function to load and edit the data base for bslib"""
 import pandas as pd
-import numpy as np
 
 
 def read_excel_to_df():
