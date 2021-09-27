@@ -6,7 +6,7 @@ def read_excel_to_df():
     """This functions reads an Microsoft Excel file and returns it as an pandas data frame"""
     df = pd.read_excel('../input/PerModPAR.xlsx', sheet_name='Data', usecols=[4, 5, 7, 8, 9, 10, 11, 12, 18],
                        na_values='^\s+$')
-    
+
     df.fillna('', inplace=True)
 
     return df
