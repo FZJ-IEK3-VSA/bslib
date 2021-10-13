@@ -187,8 +187,18 @@ def export_to_csv(df):
     df.to_csv('../input/out.csv', index=False)
 
 
+def convert_to_nan(df):
+    df[df == 'ns'] = np.nan
+    df[df == 'o'] = np.nan
+    df[df == 'c'] = np.nan
+    df[df == ' '] = np.nan
+    df[df == 'nan'] = np.nan
+    return df
+
+
 def main():
     df = read_excel_to_df()
+    df = convert_to_nan(df)
     df = transpose_df(df)
     df = drop_columns(df)
     df = rename_columns(df)
