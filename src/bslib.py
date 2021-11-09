@@ -4,7 +4,7 @@ from typing import Dict
 import pandas as pd
 import numpy as np
 
-
+# Load paramterS
 def load_parameter(model_name: str = None) -> Dict:
     """Loads model specific parameters from the database.
 
@@ -200,6 +200,9 @@ def transform_dict_to_array(parameter):
 
     return d
 
+battery = Battery(id='S2')
+
+battery.simualte(P_set=, soc=)
 
 class Battery:
     def __init__(self, parameter: Dict = None, id: str = None):
