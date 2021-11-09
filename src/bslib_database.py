@@ -1,11 +1,13 @@
 """This files contains function to load and edit the data base for bslib"""
+import os
+
 import pandas as pd
 import numpy as np
 
 
 def read_excel_to_df():
     """This functions reads an Microsoft Excel file and returns it as an pandas data frame"""
-    df = pd.read_excel('../input/PerModPAR.xlsx', sheet_name='Data')
+    df = pd.read_excel(os.path.join("input", "PerModPAR.xlsx"), sheet_name='Data')
 
     # Drop all columns after End marker
     end = df.loc[:, (df == 'End').any()].columns
@@ -24,6 +26,14 @@ def read_excel_to_df():
 
 
 def transpose_df(df):
+    """This functions transposes the DataFrame
+
+    :param df: DataFrame
+    :type df: pandas DataFrame
+    :return: DataFrame
+    :rtype: pandas DataFrame
+    """
+
     df = df.T
     header_row = 0
     df.columns = df.iloc[header_row]
@@ -40,6 +50,13 @@ def transpose_df(df):
 
 
 def drop_columns(df):
+    """This function drops certain columns from the DataFrame
+
+    :param df: DataFrame
+    :type df: pandas DataFrame
+    :return: DataFrame
+    :rtype: pandas DataFrame
+    """
 
     drop_cols = [
         "Type",
@@ -137,6 +154,13 @@ def drop_columns(df):
 
 
 def rename_columns(df):
+    """This function renames certain columns of the DataFrame
+
+    :param df: DataFrame
+    :type df: pandas DataFrame
+    :return: DataFrame
+    :rtype: pandas DataFrame
+    """
     renamed_cols = {"Man1": "Manufacturer (PE)",
                     "Pro1": "Model (PE)",
                     "Man2": "Manufacturer (BAT)",
@@ -184,10 +208,23 @@ def rename_columns(df):
 
 
 def export_to_csv(df):
-    df.to_csv('../input/out.csv', index=False)
+    """This function exports a DataFrame to a CSV file.
+
+    :param df: DataFrame
+    :type df: pandas DataFrame
+    """
+    df.to_csv(os.path.join("input", "bslib_database.csv"), index=False)
 
 
 def convert_to_nan(df):
+    """This function converts certain values to numpy nan values.
+
+    :param df: DataFrame
+    :type df: pandas DataFrame
+    :return: DataFrame
+    :rtype: pandas DataFrame
+    """
+
     df[df == 'ns'] = np.nan
     df[df == 'o'] = np.nan
     df[df == 'c'] = np.nan
@@ -197,6 +234,11 @@ def convert_to_nan(df):
 
 
 def main():
+    """
+    This is the main function which gets called when this module gets called
+    when this module is executed as a script.
+    """
+
     df = read_excel_to_df()
     df = convert_to_nan(df)
     df = transpose_df(df)
