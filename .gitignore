@@ -127,3 +127,14 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+.DS_Store
+.idea/bslib.iml
+.idea/csv-plugin.xml
+.idea/inspectionProfiles/profiles_settings.xml
+.idea/misc.xml
+.idea/modules.xml
+.idea/vcs.xml
+.idea/workspace.xml
+.vscode/launch.json
+.vscode/settings.json
+input/.~lock.PerModPAR.xlsx#
