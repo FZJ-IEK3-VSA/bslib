@@ -240,6 +240,8 @@ def main():
     """
 
     df = read_excel_to_df()
+    # eta2abc Verslustleistungskoeffizienten
+    # Was nicht gebraucht wird muss nicht in die csv geschrieben werden p1-px. eta_25 - eta_x
     df = convert_to_nan(df)
     df = transpose_df(df)
     df = drop_columns(df)
