@@ -498,6 +498,7 @@ def main():
     df = transpose_df(df)
 
     df = df.reset_index(drop=True)
+
     indexes = df.index.tolist()
 
     for index in indexes:
