@@ -499,7 +499,7 @@ def main():
 
     df = df.reset_index(drop=True)
     indexes = df.index.tolist()
-    df = rename_columns(df)
+
     for index in indexes:
         row_dict = df.iloc[index, :].to_dict()
         parameter = assign_specific_values(row_dict)
@@ -508,7 +508,7 @@ def main():
             df.loc[index, key] = parameter.get(key)
 
     df = drop_columns(df)
-
+    df = rename_columns(df)
     df = df.applymap(lambda x: round(x, 2) if isinstance(x, (int, float)) else x)
 
     export_to_csv(df)
