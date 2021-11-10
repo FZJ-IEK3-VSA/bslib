@@ -114,6 +114,17 @@ def drop_columns(df):
 
     drop_cols = [
         "Type",
+        "U_PV_min",
+        "U_PV_nom",
+        "U_PV_max",
+        "U_MPP_min",
+        "U_MPP_max",
+        "U_BAT_min",
+        "U_BAT_nom",
+        "U_BAT_max",
+        "P_PV2AC_in",
+        "P_PV2AC_out",
+        "P_PV2AC_out_AC",
         "p_PV2AC_5",
         "p_PV2AC_10",
         "p_PV2AC_20",
@@ -194,6 +205,12 @@ def drop_columns(df):
         'eta_BAT2PV_50',
         'eta_BAT2PV_75',
         'eta_BAT2PV_100',
+        "eta_BAT_100",
+        "eta_BAT_50",
+        "eta_BAT_25",
+        "E_BAT_100",
+        "E_BAT_50",
+        "E_BAT_25",
         'ref_1',
         'ref_2',
         'Man3',
@@ -273,7 +290,7 @@ def export_to_csv(df):
                                                   "bslib_database.csv")), index=False)
 
 
-def convert_to_nan(df):
+def convert_to_none(df):
     """This function converts certain values to numpy nan values.
 
     :param df: DataFrame
@@ -287,6 +304,9 @@ def convert_to_nan(df):
     df[df == 'c'] = np.nan
     df[df == ' '] = np.nan
     df[df == 'nan'] = np.nan
+
+    df = df.where(pd.notnull(df), None)
+
     return df
 
 
@@ -494,7 +514,7 @@ def main():
     """
 
     df = read_excel_to_df()
-    df = convert_to_nan(df)
+    df = convert_to_none(df)
     df = transpose_df(df)
 
     df = df.reset_index(drop=True)
