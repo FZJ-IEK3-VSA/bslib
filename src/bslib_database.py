@@ -33,28 +33,28 @@ def assign_specific_values(parameter):
     # parameter['P_PV2AC_out_PVINV'] = parameter[col_name][15].value
     parameter['P_PV2AC_out_PVINV'] = parameter['P_PV2AC_out']
     # parameter['P_PV2AC_out'] = ws[col_name][24].value
-    parameter['P_PV2AC_out'] = parameter['P_PV2AC_out [W].1']
+    parameter['P_PV2AC_out'] = parameter['P_PV2AC_out_AC']
     # parameter['P_AC2BAT_in_DCC'] = ws[col_name][25].value
     parameter['P_AC2BAT_in_DCC'] = parameter['P_AC2BAT_in']
     # parameter['P_AC2BAT_in'] = ws[col_name][26].value
-    parameter['P_AC2BAT_in'] = parameter['P_AC2BAT_in [W].1']
+    parameter['P_AC2BAT_in'] = parameter['P_AC2BAT_in_nom']
     # parameter['P_BAT2AC_out'] = ws[col_name][27].value
     parameter['P_BAT2AC_out'] = parameter['P_BAT2AC_out']
     # parameter['P_BAT2AC_out_DCC'] = ws[col_name][28].value
-    parameter['P_BAT2AC_out_DCC'] = parameter['P_BAT2AC_out [W].1']
+    parameter['P_BAT2AC_out_DCC'] = parameter['P_BAT2AC_out_AC']
 
     # Specific parameters of DC-coupled systems
-    if parameter['Type'] == 'DC':
+    if parameter['Top'] == 'DC':
         parameter['P_AC2BAT_in'] = parameter['P_AC2BAT_in_DCC']  # Nominal charging power (AC) in kW
         parameter['P_BAT2AC_out'] = parameter['P_BAT2AC_out_DCC']
 
     # Specific parameters of PV inverters and AC-coupled systems
-    if parameter['Type'] == 'PVINV' or parameter['Type'] == 'AC' and \
+    if parameter['Top'] == 'PVINV' or parameter['Top'] == 'AC' and \
             parameter['P_PV2AC_out_PVINV'] is not None:
         parameter['P_PV2AC_out'] = parameter['P_PV2AC_out_PVINV']
 
     # Specific parameters of PV-coupled systems
-    if parameter['Type'] == 'PV':
+    if parameter['Top'] == 'PV':
         parameter['P_BAT2PV_in'] = parameter['P_BAT2AC_in']
         parameter['P_BAT2AC_out'] = parameter['P_BAT2AC_out_DCC']
 
@@ -499,9 +499,13 @@ def main():
 
     df = df.reset_index(drop=True)
 
-    indexes = df.index.tolist()
+    col_names = df.columns.to_series()
+    col_names.iloc[18] = "P_PV2AC_out_AC"
+    col_names.iloc[20] = "P_AC2BAT_in_nom"
+    col_names.iloc[22] = "P_BAT2AC_out_AC"
+    df.columns = col_names
 
-    for index in indexes:
+    for index in df.index.tolist():
         row_dict = df.iloc[index, :].to_dict()
         parameter = assign_specific_values(row_dict)
         parameter = eta2abc(parameter)
