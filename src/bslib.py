@@ -164,6 +164,8 @@ class ACBatMod:
         self._t_DEAD = int(round(params[17]))
         self._SOC_h = params[18]
 
+        self._th = False
+
         self._P_AC2BAT_min = self._AC2BAT_c_in
         self._P_BAT2AC_min = self._BAT2AC_c_out
 
@@ -177,21 +179,19 @@ class ACBatMod:
         self._ftde = 1 - np.exp(-self._dt / self._t_CONSTANT)
         # Capacity of the battery, conversion from kWh to Wh
         self._E_BAT *= 1000
-        # Effiency of the battery in percent
+        # Efficiency of the battery in percent
         self._eta_BAT /= 100
-    #def simulate(self,*, Pr, soc)
-    def simulate(self, timestep: int, stsv: SingleTimeStepValues,
-                 seconds_per_timestep: int, force_convergence: bool):
-        # Inputs
-        Pr = stsv.get_input_value(self.Pr_C)
-        t = timestep
+
+    def simulate(self, Pr: float, soc: float):
+
+        #Inputs
+        P_bs = Pr
 
         # Calculation
         # Energy content of the battery in the previous time step
-        E_b0 = self.state.soc * self._E_BAT
+        E_b0 = soc * self._E_BAT
 
         # Calculate the AC power of the battery system from the residual power
-        P_bs = Pr
 
         # Check if the battery holds enough unused capacity for charging or discharging
         # Estimated amount of energy in Wh that is supplied to or discharged from the storage unit.
@@ -219,10 +219,11 @@ class ACBatMod:
         # Limit the AC power of the battery system to the rated power of the
         # battery converter
         P_bs = np.maximum(-self._P_BAT2AC_out * 1000,
-                            np.minimum(self._P_AC2BAT_in * 1000, P_bs))
+                          np.minimum(self._P_AC2BAT_in * 1000, P_bs))
 
         # Decision if the battery should be charged or discharged
-        if P_bs > 0 and self.state.soc < 1 - self.state._th * (1 - self._SOC_h):
+        # Charging
+        if P_bs > 0 and soc < 1 - self._th * (1 - self._SOC_h):
             # The last term th*(1-SOC_h) avoids the alternation between
             # charging and standby mode due to the DC power consumption of the
             # battery converter when the battery is fully charged. The battery
@@ -234,39 +235,38 @@ class ACBatMod:
 
             # DC power of the battery affected by the AC2BAT conversion losses
             # of the battery converter
-            P_bat = np.maximum(
-                0, P_bs - (self._AC2BAT_a_in
-                           * p_bs * p_bs
-                           + self._AC2BAT_b_in * p_bs + self._AC2BAT_c_in))
-
-        elif P_bs < 0 and self.state.soc > 0:
+            P_bat = np.maximum(0, P_bs - (self._AC2BAT_a_in * p_bs * p_bs
+                                          + self._AC2BAT_b_in * p_bs
+                                          + self._AC2BAT_c_in))
+        # Discharging
+        elif P_bs < 0 and soc > 0:
 
             # Normalized AC power of the battery system
             p_bs = np.abs(P_bs / self._P_BAT2AC_out / 1000)
 
             # DC power of the battery affected by the BAT2AC conversion losses
             # of the battery converter
-            P_bat = P_bs - (self._BAT2AC_a_out * p_bs * p_bs +
-                            self._BAT2AC_b_out * p_bs + self._BAT2AC_c_out)
+            P_bat = P_bs - (self._BAT2AC_a_out * p_bs * p_bs
+                            + self._BAT2AC_b_out * p_bs
+                            + self._BAT2AC_c_out)
 
-        else:  # Neither charging nor discharging of the battery
-
+        # Neither charging nor discharging of the battery
+        else:
             # Set the DC power of the battery to zero
             P_bat = 0
 
         # Decision if the standby mode is active
-        if P_bat == 0 and self.state.soc <= 0:  # Standby mode in discharged state
+        if P_bat == 0 and soc <= 0:  # Standby mode in discharged state
 
             # DC and AC power consumption of the battery converter
             P_bat = -np.maximum(0, self._P_SYS_SOC0_DC)
             P_bs = self._P_SYS_SOC0_AC
 
-        elif P_bat == 0 and self.state.soc > 0:  # Standby mode in fully charged state
+        elif P_bat == 0 and soc > 0:  # Standby mode in fully charged state
 
             # DC and AC power consumption of the battery converter
             P_bat = -np.maximum(0, self._P_SYS_SOC1_DC)
             P_bs = self._P_SYS_SOC1_AC
-
 
         # Change the energy content of the battery from Ws to Wh conversion
         if P_bat > 0:
@@ -279,20 +279,18 @@ class ACBatMod:
             E_b = E_b0
 
         # Calculate the state of charge of the battery
-        self.state.soc = E_b / (self._E_BAT)
+        soc = E_b / self._E_BAT
 
         # Adjust the hysteresis threshold to avoid alternation
         # between charging and standby mode due to the DC power
         # consumption of the battery converter.
-        if self.state._th and self.state.soc > self._SOC_h or self.state.soc > 1:
-            self.state._th = True
+        if self._th and soc > self._SOC_h or soc > 1:
+            self._th = True
         else:
-            self.state._th = False
+            self._th = False
 
-        self.state.P_bs = P_bs
         # Outputs
-        stsv.set_output_value(self.P_bs_C, P_bs)
-        stsv.set_output_value(self.soc_C, self.state.soc)
+        return P_bs, soc
 
 
 if __name__ == "__main__":
