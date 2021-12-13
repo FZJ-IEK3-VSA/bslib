@@ -42,14 +42,15 @@ def transform_dict_to_array(parameter):
     :return: array of system parameters
     :rtype: numpy array
     """
+    # Der Standby-SOC1_AC
     if parameter['Type'] == 'AC':
-        d = np.array(parameter['E_BAT'])                # 0
+        d = np.array(parameter['E_BAT'])                # 0 multi mit dem gewünschten
         d = np.append(d, parameter['eta_BAT'])          # 1
         d = np.append(d, parameter['t_CONSTANT'])  # 2
         d = np.append(d, parameter['P_SYS_SOC0_DC'])  # 3
         d = np.append(d, parameter['P_SYS_SOC0_AC'])  # 4
-        d = np.append(d, parameter['P_SYS_SOC1_DC'])  # 5
-        d = np.append(d, parameter['P_SYS_SOC1_AC'])  # 6
+        d = np.append(d, parameter['P_SYS_SOC1_DC'])  # 5 multi mit Kapazität in kWh
+        d = np.append(d, parameter['P_SYS_SOC1_AC'])  # 6 multi mit WR-Leistung in W / 1000
         d = np.append(d, parameter['AC2BAT_a_in'])  # 7
         d = np.append(d, parameter['AC2BAT_b_in'])  # 8
         d = np.append(d, parameter['AC2BAT_c_in'])  # 9
@@ -58,8 +59,8 @@ def transform_dict_to_array(parameter):
         d = np.append(d, parameter['BAT2AC_c_out'])  # 12
         d = np.append(d, parameter['P_AC2BAT_DEV'])  # 13
         d = np.append(d, parameter['P_BAT2AC_DEV'])  # 14
-        d = np.append(d, parameter['P_BAT2AC_out'])  # 15
-        d = np.append(d, parameter['P_AC2BAT_in'])  # 16
+        d = np.append(d, parameter['P_BAT2AC_out'])  # 15 multi mit gewünschten WR-Leistung in W / 1000
+        d = np.append(d, parameter['P_AC2BAT_in'])  # 16 multi mit gewünschten WR-Leistung in W / 1000
         d = np.append(d, parameter['t_DEAD'])  # 17
         d = np.append(d, parameter['SOC_h'])  # 18
 
@@ -117,7 +118,11 @@ def transform_dict_to_array(parameter):
 
     return d
 
-
+# Einige Parameter bei generic angeben
+# Parameter wie Standby Verlust sind abhängig von anderen Parametern und werden nachträglich brechnet.
+# Generic Topologie angeben. Checken ob generic ausgewählt wurde.
+# Kapazität und Leistung vom WR reteed Power AC-Seite angeben.
+# 
 class Battery:
     def __init__(self, parameter: Dict = None, id: str = None):
 
