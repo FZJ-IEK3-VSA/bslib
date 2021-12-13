@@ -4,5 +4,4 @@ pip
 pandas
 numba
 numpy
-
 openpyxl
