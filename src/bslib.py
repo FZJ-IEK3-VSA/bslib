@@ -17,7 +17,7 @@ def load_parameter(model_name: str = None) -> Dict:
 
     df = pd.read_csv(os.path.abspath(os.path.join(os.path.dirname(__file__),
                                                   "..",
-                                                  "input",
+                                                  "src",
                                                   "bslib_database.csv")))
 
     df = df.loc[df['ID'] == model_name]
@@ -125,14 +125,20 @@ def transform_dict_to_array(parameter):
 
 
 class Battery:
-    def __init__(self, sys_id: str = None, p_inv_custom: float = None, e_bat_custom: float = None):
+    def __init__(self,
+                 dt: int,
+                 sys_id: str = None,
+                 p_inv_custom: float = None, # in kW
+                 e_bat_custom: float = None # in kWh
+                 ):
         self.parameter = load_parameter(sys_id)
-        self.model = self._get_model(self.parameter, p_inv_custom, e_bat_custom)
+        # Abfrage auf Genreic hier rein machen
+        self.model = self._get_model(self.parameter, self.dt)
 
     @staticmethod
-    def _get_model(parameter):
+    def _get_model(parameter, dt):
         if parameter['Type'] == 'AC':
-            return ACBatMod
+            return ACBatMod(parameter, *args)
 
     def simulate(self):
         self.model.simulate()
@@ -149,7 +155,7 @@ class ACBatMod:
         """
 
         # Loading of particular variables
-        self._dt = dt
+        self._dt = dt # In die simulate als Variable statt global
         self._E_BAT = parameter['E_BAT']
         self._eta_BAT = parameter['eta_BAT']
         self._t_CONSTANT = parameter['t_CONSTANT']
@@ -171,12 +177,10 @@ class ACBatMod:
         self._SOC_h = parameter['SOC_h']
 
         if parameter['Manufacturer (PE)'] == 'Generic':
-            self._PV_inv = args[0]  # Custom inverter power
+            self._P_AC2BAT_in, self._P_BAT2AC_out = args[0] * 1000  # Custom inverter power
             self._E_BAT = self._E_BAT * args[1]  # Custom battery capacity
             self._P_SYS_SOC1_DC = self._P_SYS_SOC1_DC * self._E_BAT  # Multi mit Kapazität in kWh
-            self._P_SYS_SOC1_AC = self._P_SYS_SOC1_AC * self._PV_inv / 1000  # Multi mit WR-Leistung in W / 1000
-            self._P_BAT2AC_out = self._P_BAT2AC_out * self._PV_inv / 1000  # Multi mit WR-Leistung in W / 1000
-            self._P_AC2BAT_in = self._P_AC2BAT_in * self._PV_inv / 1000  # Multi mit WR-Leistung in W / 1000
+            self._P_SYS_SOC1_AC = self._P_SYS_SOC1_AC * self._P_BAT2AC_out  # Multi mit WR-Leistung in W / 1000
 
         self._th = False
 
@@ -196,10 +200,11 @@ class ACBatMod:
         # Efficiency of the battery in percent
         self._eta_BAT /= 100
 
-    def simulate(self, Pr: float, soc: float):
+    # dt mit übergeben
+    def simulate(self, P_setpoint: float, soc: float):
 
         # Inputs
-        P_bs = Pr
+        P_bs = P_setpoint
 
         # Calculation
         # Energy content of the battery in the previous time step
@@ -308,4 +313,6 @@ class ACBatMod:
 
 
 if __name__ == "__main__":
+
+    battery = Battery(dt=60, sys_id='S2')
     print()
