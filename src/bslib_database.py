@@ -8,9 +8,9 @@ import numpy as np
 def read_excel_to_df():
     """This functions reads an Microsoft Excel file and returns it as an pandas data frame"""
     df = pd.read_excel(os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                                  "..",
-                                                  "input",
-                                                  "PerModPAR.xlsx")), sheet_name='Data')
+                                                    "..",
+                                                    "input",
+                                                    "PerModPAR.xlsx")), sheet_name='Data')
 
     # Drop all columns after End marker
     end = df.loc[:, (df == 'End').any()].columns
@@ -285,9 +285,9 @@ def export_to_csv(df):
     :type df: pandas DataFrame
     """
     df.to_csv(os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                                  "..",
-                                                  "src",
-                                                  "bslib_database.csv")), index=False)
+                                           "..",
+                                           "src",
+                                           "bslib_database.csv")), index=False)
 
 
 def convert_to_none(df):
