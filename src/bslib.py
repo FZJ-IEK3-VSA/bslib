@@ -183,7 +183,7 @@ class ACBatMod:
         self._P_AC2BAT_min = self._AC2BAT_c_in
         self._P_BAT2AC_min = self._BAT2AC_c_out
 
-        # Correction factor to avoid over charge and discharge the battery
+        # Correction factor to avoid overcharge and discharge the battery
         self.corr = 0.1
 
         # Initialization of particular variables
