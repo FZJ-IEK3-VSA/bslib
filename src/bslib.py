@@ -30,7 +30,6 @@ def load_parameter(model_name: str = None) -> Dict:
 
     parameter: dict = df.to_dict(orient='records')[0]
 
-
     return parameter
 
 
@@ -44,8 +43,8 @@ def transform_dict_to_array(parameter):
     """
     # Der Standby-SOC1_AC
     if parameter['Type'] == 'AC':
-        d = np.array(parameter['E_BAT'])                # 0 multi mit dem gewünschten
-        d = np.append(d, parameter['eta_BAT'])          # 1
+        d = np.array(parameter['E_BAT'])  # 0 multi mit dem gewünschten Kapazität
+        d = np.append(d, parameter['eta_BAT'])  # 1
         d = np.append(d, parameter['t_CONSTANT'])  # 2
         d = np.append(d, parameter['P_SYS_SOC0_DC'])  # 3
         d = np.append(d, parameter['P_SYS_SOC0_AC'])  # 4
@@ -68,22 +67,22 @@ def transform_dict_to_array(parameter):
         d = np.array(parameter['E_BAT'])  # 1
         d = np.append(d, parameter['P_PV2AC_in'])  # 2
         d = np.append(d, parameter['P_PV2AC_out'])  # 3
-        d = np.append(d, parameter['P_PV2BAT_in'])       # 4
-        d = np.append(d, parameter['P_BAT2AC_out'])       # 5
-        d = np.append(d, parameter['PV2AC_a_in'])          # 6
-        d = np.append(d, parameter['PV2AC_b_in'])           # 7
-        d = np.append(d, parameter['PV2AC_c_in'])            # 8
-        d = np.append(d, parameter['PV2BAT_a_in'])            # 9
+        d = np.append(d, parameter['P_PV2BAT_in'])  # 4
+        d = np.append(d, parameter['P_BAT2AC_out'])  # 5
+        d = np.append(d, parameter['PV2AC_a_in'])  # 6
+        d = np.append(d, parameter['PV2AC_b_in'])  # 7
+        d = np.append(d, parameter['PV2AC_c_in'])  # 8
+        d = np.append(d, parameter['PV2BAT_a_in'])  # 9
         d = np.append(d, parameter['PV2BAT_b_in'])  # 10
         d = np.append(d, parameter['BAT2AC_a_out'])  # 11
         d = np.append(d, parameter['BAT2AC_b_out'])  # 12
         d = np.append(d, parameter['BAT2AC_c_out'])  # 13
         d = np.append(d, parameter['eta_BAT'])  # 14
         d = np.append(d, parameter['SOC_h'])  # 15
-        d = np.append(d, parameter['P_PV2BAT_DEV'])       # 16
+        d = np.append(d, parameter['P_PV2BAT_DEV'])  # 16
         d = np.append(d, parameter['P_BAT2AC_DEV'])  # 17
         d = np.append(d, parameter['t_DEAD'])  # 18
-        d = np.append(d, parameter['t_CONSTANT'])          # 19
+        d = np.append(d, parameter['t_CONSTANT'])  # 19
         d = np.append(d, parameter['P_SYS_SOC1_DC'])  # 20
         d = np.append(d, parameter['P_SYS_SOC0_AC'])  # 21
         d = np.append(d, parameter['P_SYS_SOC0_DC'])  # 22
@@ -118,15 +117,17 @@ def transform_dict_to_array(parameter):
 
     return d
 
+
 # Einige Parameter bei generic angeben
 # Parameter wie Standby Verlust sind abhängig von anderen Parametern und werden nachträglich brechnet.
 # Generic Topologie angeben. Checken ob generic ausgewählt wurde.
 # Kapazität und Leistung vom WR reteed Power AC-Seite angeben.
-# 
-class Battery:
-    def __init__(self, parameter: Dict = None, id: str = None):
 
-        self.model = self._get_model(parameter)
+
+class Battery:
+    def __init__(self, sys_id: str = None, p_inv_custom: float = None, e_bat_custom: float = None):
+        self.parameter = load_parameter(sys_id)
+        self.model = self._get_model(self.parameter, p_inv_custom, e_bat_custom)
 
     @staticmethod
     def _get_model(parameter):
@@ -138,7 +139,7 @@ class Battery:
 
 
 class ACBatMod:
-    def __init__(self, parameter_dict: Dict, dt):
+    def __init__(self, parameter: Dict, dt, *args):
         """Performance Simulation function for AC-coupled battery systems
 
         :param d: array containing parameters
@@ -146,28 +147,36 @@ class ACBatMod:
         :param dt: time step width
         :type dt: integer
         """
-        params = transform_dict_to_array(parameter_dict)
+
         # Loading of particular variables
         self._dt = dt
-        self._E_BAT = params[0]
-        self._eta_BAT = params[1]
-        self._t_CONSTANT = params[2]
-        self._P_SYS_SOC0_DC = params[3]
-        self._P_SYS_SOC0_AC = params[4]
-        self._P_SYS_SOC1_DC = params[5]
-        self._P_SYS_SOC1_AC = params[6]
-        self._AC2BAT_a_in = params[7]
-        self._AC2BAT_b_in = params[8]
-        self._AC2BAT_c_in = params[9]
-        self._BAT2AC_a_out = params[10]
-        self._BAT2AC_b_out = params[11]
-        self._BAT2AC_c_out = params[12]
-        self._P_AC2BAT_DEV = params[13]
-        self._P_BAT2AC_DEV = params[14]
-        self._P_BAT2AC_out = params[15]
-        self._P_AC2BAT_in = params[16]
-        self._t_DEAD = int(round(params[17]))
-        self._SOC_h = params[18]
+        self._E_BAT = parameter['E_BAT']
+        self._eta_BAT = parameter['eta_BAT']
+        self._t_CONSTANT = parameter['t_CONSTANT']
+        self._P_SYS_SOC0_DC = parameter['P_SYS_SOC0_DC']
+        self._P_SYS_SOC0_AC = parameter['P_SYS_SOC0_AC']
+        self._P_SYS_SOC1_DC = parameter['P_SYS_SOC1_DC']
+        self._P_SYS_SOC1_AC = parameter['P_SYS_SOC1_AC']
+        self._AC2BAT_a_in = parameter['AC2BAT_a_in']
+        self._AC2BAT_b_in = parameter['AC2BAT_b_in']
+        self._AC2BAT_c_in = parameter['AC2BAT_c_in']
+        self._BAT2AC_a_out = parameter['BAT2AC_a_out']
+        self._BAT2AC_b_out = parameter['BAT2AC_b_out']
+        self._BAT2AC_c_out = parameter['BAT2AC_c_out']
+        self._P_AC2BAT_DEV = parameter['P_AC2BAT_DEV']
+        self._P_BAT2AC_DEV = parameter['P_BAT2AC_DEV']
+        self._P_BAT2AC_out = parameter['P_BAT2AC_out']
+        self._P_AC2BAT_in = parameter['P_AC2BAT_in']
+        self._t_DEAD = int(round(parameter['t_DEAD']))
+        self._SOC_h = parameter['SOC_h']
+
+        if parameter['Manufacturer (PE)'] == 'Generic':
+            self._PV_inv = args[0]  # Custom inverter power
+            self._E_BAT = self._E_BAT * args[1]  # Custom battery capacity
+            self._P_SYS_SOC1_DC = self._P_SYS_SOC1_DC * self._E_BAT  # Multi mit Kapazität in kWh
+            self._P_SYS_SOC1_AC = self._P_SYS_SOC1_AC * self._PV_inv / 1000  # Multi mit WR-Leistung in W / 1000
+            self._P_BAT2AC_out = self._P_BAT2AC_out * self._PV_inv / 1000  # Multi mit WR-Leistung in W / 1000
+            self._P_AC2BAT_in = self._P_AC2BAT_in * self._PV_inv / 1000  # Multi mit WR-Leistung in W / 1000
 
         self._th = False
 
@@ -189,7 +198,7 @@ class ACBatMod:
 
     def simulate(self, Pr: float, soc: float):
 
-        #Inputs
+        # Inputs
         P_bs = Pr
 
         # Calculation
@@ -299,6 +308,4 @@ class ACBatMod:
 
 
 if __name__ == "__main__":
-
-    parameter = load_parameter('S2')
     print()
