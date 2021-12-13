@@ -5,3 +5,6 @@ pandas
 numba
 numpy
 openpyxl
+ipykernel
+ipython_genutils
+jupyter
