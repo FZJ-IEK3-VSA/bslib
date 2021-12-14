@@ -1,12 +1,11 @@
 """This module contains functions to simulate battery storage systems"""
 import os
-from typing import Dict
+from typing import Dict, Tuple
 import pandas as pd
 import numpy as np
 
 
-# Load paramterS
-def load_parameter(model_name: str = None) -> Dict:
+def load_parameters(model_name: str = None) -> Dict:
     """Loads model specific parameters from the database.
 
     :param model_name: Model Name, defaults to None
@@ -22,15 +21,24 @@ def load_parameter(model_name: str = None) -> Dict:
 
     df = df.loc[df['ID'] == model_name]
 
-    df.columns = df.columns.str.rstrip('[W]')
-    df.columns = df.columns.str.rstrip('[V]')
-    df.columns = df.columns.str.rstrip('[s]')
-    df.columns = df.columns.str.rstrip('[-coupled]')
+    df.columns = df.columns.str.replace(r"\[W]", "", regex=True)
+    df.columns = df.columns.str.replace(r"\[V]", "", regex=True)
+    df.columns = df.columns.str.replace(r"\[s]", "", regex=True)
+    df.columns = df.columns.str.replace(r"\[kwH]", "", regex=True)
+    df.columns = df.columns.str.replace(r"\[-coupled]", "", regex=True)
+    # Remove trailing and leading whitespaces
     df.columns = df.columns.str.strip()
 
     parameter: dict = df.to_dict(orient='records')[0]
 
     return parameter
+
+
+def load_database():
+    return pd.read_csv(os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                                    "..",
+                                                    "src",
+                                                    "bslib_database.csv")))
 
 
 def transform_dict_to_array(parameter):
@@ -126,26 +134,29 @@ def transform_dict_to_array(parameter):
 
 class Battery:
     def __init__(self,
-                 dt: int,
                  sys_id: str = None,
-                 p_inv_custom: float = None, # in kW
-                 e_bat_custom: float = None # in kWh
+                 *,
+                 p_inv_custom: float = None,  # in kW
+                 e_bat_custom: float = None  # in kWh
                  ):
-        self.parameter = load_parameter(sys_id)
-        # Abfrage auf Genreic hier rein machen
-        self.model = self._get_model(self.parameter, self.dt)
+        self.parameter = load_parameters(sys_id)
+        if self.parameter['Manufacturer (PE)'] == 'Generic':
+            if p_inv_custom is None:
+                raise TypeError('Custom value for the inverter power is not specified.')
+            if e_bat_custom is None:
+                raise TypeError('Custom value for the battery capacity is not specified.')
+        self.model = self._load_model(p_inv_custom, e_bat_custom)
 
-    @staticmethod
-    def _get_model(parameter, dt):
-        if parameter['Type'] == 'AC':
-            return ACBatMod(parameter, *args)
+    def _load_model(self, p_inv_custom, e_bat_custom):
+        if self.parameter['Type'] == 'AC':
+            return ACBatMod(self.parameter, p_inv_custom, e_bat_custom)
 
-    def simulate(self):
-        self.model.simulate()
+    def simulate(self, **kwargs):
+        return self.model.simulate(**kwargs)
 
 
 class ACBatMod:
-    def __init__(self, parameter: Dict, dt, *args):
+    def __init__(self, parameter: Dict, *args):
         """Performance Simulation function for AC-coupled battery systems
 
         :param d: array containing parameters
@@ -155,7 +166,6 @@ class ACBatMod:
         """
 
         # Loading of particular variables
-        self._dt = dt # In die simulate als Variable statt global
         self._E_BAT = parameter['E_BAT']
         self._eta_BAT = parameter['eta_BAT']
         self._t_CONSTANT = parameter['t_CONSTANT']
@@ -177,7 +187,8 @@ class ACBatMod:
         self._SOC_h = parameter['SOC_h']
 
         if parameter['Manufacturer (PE)'] == 'Generic':
-            self._P_AC2BAT_in, self._P_BAT2AC_out = args[0] * 1000  # Custom inverter power
+            self._P_AC2BAT_in = args[0] * 1000  # Custom inverter power
+            self._P_BAT2AC_out = args[0] * 1000  # Custom inverter power
             self._E_BAT = self._E_BAT * args[1]  # Custom battery capacity
             self._P_SYS_SOC1_DC = self._P_SYS_SOC1_DC * self._E_BAT  # Multi mit Kapazität in kWh
             self._P_SYS_SOC1_AC = self._P_SYS_SOC1_AC * self._P_BAT2AC_out  # Multi mit WR-Leistung in W / 1000
@@ -188,20 +199,19 @@ class ACBatMod:
         self._P_BAT2AC_min = self._BAT2AC_c_out
 
         # Correction factor to avoid overcharge and discharge the battery
-        self.corr = 0.1
+        self._corr = 0.1
 
         # Initialization of particular variables
         # Binary variable to activate the first-order time delay element
         self._tde = self._t_CONSTANT > 0
         # Factor of the first-order time delay element
-        self._ftde = 1 - np.exp(-self._dt / self._t_CONSTANT)
+        #self._ftde = 1 - np.exp(-self._dt / self._t_CONSTANT)
         # Capacity of the battery, conversion from kWh to Wh
         self._E_BAT *= 1000
         # Efficiency of the battery in percent
         self._eta_BAT /= 100
 
-    # dt mit übergeben
-    def simulate(self, P_setpoint: float, soc: float):
+    def simulate(self, *, P_setpoint: float, soc: float, dt: int) -> Tuple[float, float]:
 
         # Inputs
         P_bs = P_setpoint
@@ -214,14 +224,14 @@ class ACBatMod:
 
         # Check if the battery holds enough unused capacity for charging or discharging
         # Estimated amount of energy in Wh that is supplied to or discharged from the storage unit.
-        E_bs_est = P_bs * self._dt / 3600
+        E_bs_est = P_bs * dt / 3600
 
         # Reduce P_bs to avoid over charging of the battery
         if E_bs_est > 0 and E_bs_est > (self._E_BAT - E_b0):
-            P_bs = (self._E_BAT - E_b0) * 3600 / self._dt
+            P_bs = (self._E_BAT - E_b0) * 3600 / dt
         # When discharging take the correction factor into account
         elif E_bs_est < 0 and np.abs(E_bs_est) > (E_b0):
-            P_bs = (E_b0 * 3600 / self._dt) * (1 - self.corr)
+            P_bs = (E_b0 * 3600 / dt) * (1 - self._corr)
 
         # Adjust the AC power of the battery system due to the stationary
         # deviations taking the minimum charging and discharging power into
@@ -289,10 +299,10 @@ class ACBatMod:
 
         # Change the energy content of the battery from Ws to Wh conversion
         if P_bat > 0:
-            E_b = E_b0 + P_bat * np.sqrt(self._eta_BAT) * self._dt / 3600
+            E_b = E_b0 + P_bat * np.sqrt(self._eta_BAT) * dt / 3600
 
         elif P_bat < 0:
-            E_b = E_b0 + P_bat / np.sqrt(self._eta_BAT) * self._dt / 3600
+            E_b = E_b0 + P_bat / np.sqrt(self._eta_BAT) * dt / 3600
 
         else:
             E_b = E_b0
@@ -313,6 +323,9 @@ class ACBatMod:
 
 
 if __name__ == "__main__":
-
-    battery = Battery(dt=60, sys_id='S2')
+    battery = Battery(sys_id='SG1', p_inv_custom=150, e_bat_custom=12)
+    p_bs = 0
+    soc = 0
+    dt = 60*60
+    p_bs, soc = battery.simulate(P_setpoint=1000, soc=soc, dt=dt)
     print()
