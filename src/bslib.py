@@ -3,6 +3,7 @@ import os
 from typing import Dict, Tuple
 import pandas as pd
 import numpy as np
+import plotly
 
 
 def load_parameters(model_name: str = None) -> Dict:
@@ -323,9 +324,19 @@ class ACBatMod:
 
 
 if __name__ == "__main__":
-    battery = Battery(sys_id='SG1', p_inv_custom=150, e_bat_custom=12)
-    p_bs = 0
+    # Array for testting with a timestep width of 15 minutes
+    test_values = np.empty(int(525600/15),)
+    test_values[:int(525600/15/2)] = 5000
+    test_values[int(525600 / 15 / 2):] = -5000
+
+    battery = Battery(sys_id='S2')
     soc = 0
-    dt = 60*60
-    p_bs, soc = battery.simulate(P_setpoint=1000, soc=soc, dt=dt)
+    dt = 60*15
+    p_bs_list = []
+    soc_list = []
+    for value in test_values:
+        p_bs, soc = battery.simulate(P_setpoint=value, soc=soc, dt=dt)
+        p_bs_list.append(p_bs)
+        soc_list.append(soc)
+
     print()
