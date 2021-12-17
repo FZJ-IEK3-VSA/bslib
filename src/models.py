@@ -3,7 +3,6 @@ import os
 from typing import Dict, Tuple
 import pandas as pd
 import numpy as np
-import plotly
 
 
 def load_parameters(model_name: str = None) -> Dict:
@@ -232,7 +231,7 @@ class ACBatMod:
             P_bs = (self._E_BAT - E_b0) * 3600 / dt
         # When discharging take the correction factor into account
         elif E_bs_est < 0 and np.abs(E_bs_est) > (E_b0):
-            P_bs = (E_b0 * 3600 / dt) * (1 - self._corr)
+            P_bs = -((E_b0 * 3600 / dt) * (1 - self._corr))
 
         # Adjust the AC power of the battery system due to the stationary
         # deviations taking the minimum charging and discharging power into
@@ -324,19 +323,24 @@ class ACBatMod:
 
 
 if __name__ == "__main__":
-    # Array for testting with a timestep width of 15 minutes
-    test_values = np.empty(int(525600/15),)
-    test_values[:int(525600/15/2)] = 5000
-    test_values[int(525600 / 15 / 2):] = -5000
 
     battery = Battery(sys_id='S2')
+
+    dt = 60 * 15
     soc = 0
-    dt = 60*15
+
+    # Array for testting with a timestep width of 15 minutes
+    test_values = np.empty(int(525600 / 15), )
+    test_values[:int(525600 / 15 / 2)] = 3000
+    test_values[int(525600 / 15 / 2):] = -3830
     p_bs_list = []
     soc_list = []
     for value in test_values:
         p_bs, soc = battery.simulate(P_setpoint=value, soc=soc, dt=dt)
         p_bs_list.append(p_bs)
         soc_list.append(soc)
+d = {'Test_values':test_values,'P_BS':p_bs_list, 'SOC':soc_list}
+df = pd.DataFrame(d)
+df['SOC'] = df['SOC'] * 100
+print(max(soc_list))
 
-    print()
