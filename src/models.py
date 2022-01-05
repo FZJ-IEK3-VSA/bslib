@@ -322,7 +322,7 @@ class Battery:
             # Outputs
             return P_bs, soc
 
-    # Check if when discharging the value has to be negative
+    # Check in DCBATMOD if when discharging the value has to be negative
     """
     # When discharging take the correction factor into account
             elif E_bs_r < 0 and np.abs(E_bs_r) > E_b0:
@@ -362,14 +362,59 @@ class Battery:
         :param dt: time step width in seconds
         :type dt: integer
         """
-        _version = 0.1
 
-        def __init__(self, parameter, d, ppv, pl, dt):
+        def __init__(self, parameter):
             """Constructor method
             """
-            pass
+            self._E_BAT = parameter["E_BAT"]
+            self._P_PV2AC_in = parameter["P_PV2AC_in"]
+            self._P_PV2AC_out = parameter["P_PV2AC_out"]
+            self._P_PV2BAT_in = parameter["P_PV2BAT_in"]
+            self._P_BAT2AC_out = parameter["P_BAT2AC_out"]
+            self._PV2AC_a_in = parameter["PV2AC_a_in"]
+            self._PV2AC_b_in = parameter["PV2AC_b_in"]
+            self._PV2AC_c_in = parameter["PV2AC_c_in"]
+            self._PV2BAT_a_in = parameter["PV2BAT_a_in"]
+            self._PV2BAT_b_in = parameter["PV2BAT_b_in"]
+            self._BAT2AC_a_out = parameter["BAT2AC_a_out"]
+            self._BAT2AC_b_out = parameter["BAT2AC_b_out"]
+            self._BAT2AC_c_out = parameter["BAT2AC_c_out"]
+            self._eta_BAT = parameter["eta_BAT"]
+            self._SOC_h = parameter["SOC_h"]
+            self._P_PV2BAT_DEV = parameter["P_PV2BAT_DEV"]
+            self._P_BAT2AC_DEV = parameter["P_BAT2AC_DEV"]
+            self._t_DEAD = int(round(parameter["t_DEAD"]))
+            self._t_CONSTANT = parameter["t_CONSTANT"]
+            self._P_SYS_SOC1_DC = parameter["P_SYS_SOC1_DC"]
+            self._P_SYS_SOC0_AC = parameter["P_SYS_SOC0_AC"]
+            self._P_SYS_SOC0_DC = parameter["P_SYS_SOC0_DC"]
+            self._P_PV2AC_min = self._PV2AC_c_in
 
-        def simulation(self, _dt, _soc0, _soc, _Pr, _Prpv, _Ppv, _Ppv2bat_in0, _Ppv2bat_in, _Pbat2ac_out0, _Pbat2ac_out,
+            # Capacity of the battery, conversion from kWh to Wh
+            self._E_BAT *= 1000
+
+            # Efficiency of the battery in percent
+            self._eta_BAT /= 100
+
+            # Hysteresis threshold to avoid alternation
+            # between charging and standby mode due to the DC power
+            # consumption of the battery converter.
+            self._th = False
+
+            # Correction factor to avoid overcharge and discharge the battery
+            self._corr = 0.1
+
+            # Initialization of particular variables
+            # _P_PV2AC_min = _parameter['PV2AC_c_in'] # Minimum input power of the PV2AC conversion pathway
+            _tde = self._t_CONSTANT > 0  # Binary variable to activate the first-order time delay element
+            # Factor of the first-order time delay element
+            #_ftde = 1 - np.exp(-_dt / _t_CONSTANT)
+            # First time step with regard to the dead time of the system control
+            #_tstart = np.maximum(2, 1 + _t_DEAD)
+            #_tend = int(_Pr.size)
+
+
+        def simulation(self, dt, soc, P_set_res, P_set_pv, _Ppv, _Ppv2bat_in0, _Ppv2bat_in, _Pbat2ac_out0, _Pbat2ac_out,
                       _Ppv2ac_out, _Ppvbs, _Pbat):
             """Performance simulation function for DC-coupled battery systems
 
@@ -403,64 +448,27 @@ class Battery:
             :type Pbat: float
             """
 
-            _E_BAT = d[0]
-            _P_PV2AC_in = d[1]
-            _P_PV2AC_out = d[2]
-            _P_PV2BAT_in = d[3]
-            _P_BAT2AC_out = d[4]
-            _PV2AC_a_in = d[5]
-            _PV2AC_b_in = d[6]
-            _PV2AC_c_in = d[7]
-            _PV2BAT_a_in = d[8]
-            _PV2BAT_b_in = d[9]
-            _BAT2AC_a_out = d[10]
-            _BAT2AC_b_out = d[11]
-            _BAT2AC_c_out = d[12]
-            _eta_BAT = d[13]
-            _SOC_h = d[14]
-            _P_PV2BAT_DEV = d[15]
-            _P_BAT2AC_DEV = d[16]
-            _t_DEAD = int(round(d[17]))
-            _t_CONSTANT = d[18]
-            _P_SYS_SOC1_DC = d[19]
-            _P_SYS_SOC0_AC = d[20]
-            _P_SYS_SOC0_DC = d[21]
-            _P_PV2AC_min = _PV2AC_c_in
-
-            # Capacity of the battery, conversion from kWh to Wh
-            _E_BAT *= 1000
-
-            # Effiency of the battery in percent
-            _eta_BAT /= 100
-
-            # Initialization of particular variables
-            # _P_PV2AC_min = _parameter['PV2AC_c_in'] # Minimum input power of the PV2AC conversion pathway
-            _tde = _t_CONSTANT > 0  # Binary variable to activate the first-order time delay element
-            # Factor of the first-order time delay element
-            _ftde = 1 - np.exp(-_dt / _t_CONSTANT)
-            # First time step with regard to the dead time of the system control
-            _tstart = np.maximum(2, 1 + _t_DEAD)
-            _tend = int(_Pr.size)
-            _th = False
-            corr = 0.1
+            # Inputs
+            P_r = P_set_res
+            P_rpv = P_set_pv
 
             # Energy content of the battery in the previous time step
-            E_b0 = _soc0 * _E_BAT
+            E_b0 = soc * self._E_BAT
 
             # Check if the battery holds enough unused capacity for charging or discharging
             # Estimated amount of energy that is supplied to or discharged from the storage unit.
-            E_bs_rpv = P_rpv * _dt / 3600
-            E_bs_r = P_r * _dt / 3600
+            E_bs_rpv = P_rpv * dt / 3600
+            E_bs_r = P_r * dt / 3600
 
             # Reduce P_bs to avoid over charging of the battery
-            if E_bs_rpv > 0 and E_bs_rpv > (_E_BAT - E_b0):
-                P_rpv = (_E_BAT - E_b0) * 3600 / _dt
+            if E_bs_rpv > 0 and E_bs_rpv > (self._E_BAT - E_b0):
+                P_rpv = (self._E_BAT - E_b0) * 3600 / dt
             # When discharging take the correction factor into account
             elif E_bs_r < 0 and np.abs(E_bs_r) > E_b0:
-                P_r = (E_b0 * 3600 / _dt) * (1 - corr)
+                P_r = (E_b0 * 3600 / dt) * (1 - self.corr)
 
             # Decision if the battery should be charged or discharged
-            if P_rpv > 0 and _soc0 < 1 - _th * (1 - _SOC_h):
+            if P_rpv > 0 and soc < 1 - self._th * (1 - self._SOC_h):
                 '''
                 The last term th*(1-SOC_h) avoids the alternation between
                 charging and standby mode due to the DC power consumption of the
@@ -472,33 +480,33 @@ class Battery:
                 P_pv2bat_in = P_rpv
 
                 # Adjust the charging power due to the stationary deviations
-                P_pv2bat_in = np.maximum(0, P_pv2bat_in + _P_PV2BAT_DEV)
+                P_pv2bat_in = np.maximum(0, P_pv2bat_in + self._P_PV2BAT_DEV)
 
                 # Limit the charging power to the maximum charging power
-                P_pv2bat_in = np.minimum(P_pv2bat_in, _P_PV2BAT_in * 1000)
+                P_pv2bat_in = np.minimum(P_pv2bat_in, self._P_PV2BAT_in * 1000)
 
                 # Limit the charging power to the current power output of the PV generator
                 P_pv2bat_in = np.minimum(P_pv2bat_in, _Ppv)
 
                 # Normalized charging power
-                ppv2bat = P_pv2bat_in / _P_PV2BAT_in / 1000
+                ppv2bat = P_pv2bat_in / self._P_PV2BAT_in / 1000
 
                 # DC power of the battery affected by the PV2BAT conversion losses
                 # (the idle losses of the PV2BAT conversion pathway are not taken
                 # into account)
-                P_bat = np.maximum(0, P_pv2bat_in - (_PV2BAT_a_in * ppv2bat ** 2
-                                                     + _PV2BAT_b_in * ppv2bat))
+                P_bat = np.maximum(0, P_pv2bat_in - (self._PV2BAT_a_in * ppv2bat ** 2
+                                                     + self._PV2BAT_b_in * ppv2bat))
 
                 # Realized DC input power of the PV2AC conversion pathway
                 P_pv2ac_in = _Ppv - P_pv2bat_in
 
                 # Normalized DC input power of the PV2AC conversion pathway
-                _ppv2ac = P_pv2ac_in / _P_PV2AC_in / 1000
+                _ppv2ac = P_pv2ac_in / self._P_PV2AC_in / 1000
 
                 # Realized AC power of the PV-battery system
-                P_pv2ac_out = np.maximum(0, P_pv2ac_in - (_PV2AC_a_in * _ppv2ac ** 2
-                                                          + _PV2AC_b_in * _ppv2ac
-                                                          + _PV2AC_c_in))
+                P_pv2ac_out = np.maximum(0, P_pv2ac_in - (self._PV2AC_a_in * _ppv2ac ** 2
+                                                          + self._PV2AC_b_in * _ppv2ac
+                                                          + self._PV2AC_c_in))
                 P_pvbs = P_pv2ac_out
 
                 # Transfer the final values
@@ -506,34 +514,34 @@ class Battery:
                 _Ppv2bat_in0 = P_pv2bat_in
                 _Ppv2bat_in = P_pv2bat_in
 
-            elif P_rpv < 0 and _soc0 > 0:
+            elif P_rpv < 0 and soc > 0:
 
                 # Discharging power
                 P_bat2ac_out = P_r * -1
 
                 # Adjust the discharging power due to the stationary deviations
-                P_bat2ac_out = np.maximum(0, P_bat2ac_out + _P_BAT2AC_DEV)
+                P_bat2ac_out = np.maximum(0, P_bat2ac_out + self._P_BAT2AC_DEV)
 
                 # Adjust the discharging power to the maximum discharging power
-                P_bat2ac_out = np.minimum(P_bat2ac_out, _P_BAT2AC_out * 1000)
+                P_bat2ac_out = np.minimum(P_bat2ac_out, self._P_BAT2AC_out * 1000)
 
                 # Limit the discharging power to the maximum AC power output of the PV-battery system
-                P_bat2ac_out = np.minimum(_P_PV2AC_out * 1000 - _Ppv2ac_out, P_bat2ac_out)
+                P_bat2ac_out = np.minimum(self._P_PV2AC_out * 1000 - _Ppv2ac_out, P_bat2ac_out)
 
                 # Normalized discharging power
-                ppv2bat = P_bat2ac_out / _P_BAT2AC_out / 1000
+                ppv2bat = P_bat2ac_out / self._P_BAT2AC_out / 1000
 
                 # DC power of the battery affected by the BAT2AC conversion losses
                 # (if the idle losses of the PV2AC conversion pathway are covered by
                 # the PV generator, the idle losses of the BAT2AC conversion pathway
                 # are not taken into account)
-                if _Ppv > _P_PV2AC_min:
-                    P_bat = -1 * (P_bat2ac_out + (_BAT2AC_a_out * ppv2bat ** 2
-                                                  + _BAT2AC_b_out * ppv2bat))
+                if _Ppv > self._P_PV2AC_min:
+                    P_bat = -1 * (P_bat2ac_out + (self._BAT2AC_a_out * ppv2bat ** 2
+                                                  + self._BAT2AC_b_out * ppv2bat))
                 else:
-                    P_bat = -1 * (P_bat2ac_out + (_BAT2AC_a_out * ppv2bat ** 2
-                                                  + _BAT2AC_b_out * ppv2bat
-                                                  + _BAT2AC_c_out)) + _Ppv
+                    P_bat = -1 * (P_bat2ac_out + (self._BAT2AC_a_out * ppv2bat ** 2
+                                                  + self._BAT2AC_b_out * ppv2bat
+                                                  + self._BAT2AC_c_out)) + _Ppv
 
                 # Realized AC power of the PV-battery system
                 P_pvbs = _Ppv2ac_out + P_bat2ac_out
@@ -551,16 +559,16 @@ class Battery:
                 P_pvbs = _Ppv2ac_out
 
             # Decision if the standby mode is active
-            if P_bat == 0 and P_pvbs == 0 and _soc0 <= 0:  # Standby mode in discharged state
+            if P_bat == 0 and P_pvbs == 0 and soc <= 0:  # Standby mode in discharged state
 
                 # DC and AC power consumption of the PV-battery inverter
-                P_bat = -np.maximum(0, _P_SYS_SOC0_DC)
-                P_pvbs = -_P_SYS_SOC0_AC
+                P_bat = -np.maximum(0, self._P_SYS_SOC0_DC)
+                P_pvbs = -self._P_SYS_SOC0_AC
 
-            elif P_bat == 0 and P_pvbs > 0 and _soc0 > 0:  # Standby mode in fully charged state
+            elif P_bat == 0 and P_pvbs > 0 and soc > 0:  # Standby mode in fully charged state
 
                 # DC power consumption of the PV-battery inverter
-                P_bat = -np.maximum(0, _P_SYS_SOC1_DC)
+                P_bat = -np.maximum(0, self._P_SYS_SOC1_DC)
 
             # Transfer the realized AC power of the PV-battery system and the DC power of the battery
             _Ppvbs = P_pvbs
@@ -568,25 +576,24 @@ class Battery:
 
             # Change the energy content of the battery Wx to Wh conversion
             if P_bat > 0:
-                E_b = E_b0 + P_bat * np.sqrt(_eta_BAT) * _dt / 3600
+                E_b = E_b0 + P_bat * np.sqrt(self._eta_BAT) * dt / 3600
             elif P_bat < 0:
-                E_b = E_b0 + P_bat / np.sqrt(_eta_BAT) * _dt / 3600
+                E_b = E_b0 + P_bat / np.sqrt(self._eta_BAT) * dt / 3600
             else:
                 E_b = E_b0
 
             # Calculate the state of charge of the battery
-            _soc0 = E_b / _E_BAT
-            _soc = _soc0
+            soc = E_b / self._E_BAT
 
             # Adjust the hysteresis threshold to avoid alternation between charging
             # and standby mode due to the DC power consumption of the
             # PV-battery inverter
-            if _th and _soc > _SOC_h or _soc > 1:
-                _th = True
+            if self._th and soc > self._SOC_h or soc > 1:
+                self._th = True
             else:
-                _th = False
+                self._th = False
 
-            return _Ppv2ac_out, _Ppv2bat_in, _Ppv2bat_in0, _Pbat2ac_out, _Pbat2ac_out0, _Ppvbs, _Pbat, _soc, _soc0
+            return _Ppv2ac_out, _Ppv2bat_in, _Ppv2bat_in0, _Pbat2ac_out, _Pbat2ac_out0, _Ppvbs, _Pbat, soc
 
 
 if __name__ == "__main__":
