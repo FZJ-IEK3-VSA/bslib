@@ -14,24 +14,22 @@ def load_parameters(model_name: str = None) -> Dict:
     :rtype: dict
     """
 
-    df = pd.read_csv(os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                                  "..",
-                                                  "src",
-                                                  "bslib_database.csv")))
+    database = pd.read_csv(os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                                        "..",
+                                                        "src",
+                                                        "bslib_database.csv")))
 
-    df = df.loc[df['ID'] == model_name]
+    database = database.loc[database['ID'] == model_name]
 
-    df.columns = df.columns.str.replace(r"\[W]", "", regex=True)
-    df.columns = df.columns.str.replace(r"\[V]", "", regex=True)
-    df.columns = df.columns.str.replace(r"\[s]", "", regex=True)
-    df.columns = df.columns.str.replace(r"\[kwH]", "", regex=True)
-    df.columns = df.columns.str.replace(r"\[-coupled]", "", regex=True)
+    database.columns = database.columns.str.replace(r"\[W]", "", regex=True)
+    database.columns = database.columns.str.replace(r"\[V]", "", regex=True)
+    database.columns = database.columns.str.replace(r"\[s]", "", regex=True)
+    database.columns = database.columns.str.replace(r"\[kwH]", "", regex=True)
+    database.columns = database.columns.str.replace(r"\[-coupled]", "", regex=True)
     # Remove trailing and leading whitespaces
-    df.columns = df.columns.str.strip()
+    database.columns = database.columns.str.strip()
 
-    parameter: dict = df.to_dict(orient='records')[0]
-
-    return parameter
+    return database.to_dict(orient='records')[0]
 
 
 def load_database():
@@ -206,16 +204,16 @@ class Battery:
             # Binary variable to activate the first-order time delay element
             self._tde = self._t_CONSTANT > 0
             # Factor of the first-order time delay element
-            #self._ftde = 1 - np.exp(-self._dt / self._t_CONSTANT)
+            # self._ftde = 1 - np.exp(-self._dt / self._t_CONSTANT)
             # Capacity of the battery, conversion from kWh to Wh
             self._E_BAT *= 1000
             # Efficiency of the battery in percent
             self._eta_BAT /= 100
 
-        def simulate(self, *, P_setpoint: float, soc: float, dt: int) -> Tuple[float, float]:
+        def simulate(self, *, p_set: float, soc: float, dt: int) -> Tuple[float, float]:
 
             # Inputs
-            P_bs = P_setpoint
+            P_bs = p_set
 
             # Calculation
             # Energy content of the battery in the previous time step
@@ -292,7 +290,7 @@ class Battery:
                 P_bat = -np.maximum(0, self._P_SYS_SOC0_DC)
                 P_bs = self._P_SYS_SOC0_AC
 
-            elif P_bat == 0 and soc > 0:  # Standby mode in fully charged state
+            elif P_bat == 0:  # Standby mode in fully charged state
 
                 # DC and AC power consumption of the battery converter
                 P_bat = -np.maximum(0, self._P_SYS_SOC1_DC)
@@ -408,14 +406,13 @@ class Battery:
             # _P_PV2AC_min = _parameter['PV2AC_c_in'] # Minimum input power of the PV2AC conversion pathway
             _tde = self._t_CONSTANT > 0  # Binary variable to activate the first-order time delay element
             # Factor of the first-order time delay element
-            #_ftde = 1 - np.exp(-_dt / _t_CONSTANT)
+            # _ftde = 1 - np.exp(-_dt / _t_CONSTANT)
             # First time step with regard to the dead time of the system control
-            #_tstart = np.maximum(2, 1 + _t_DEAD)
-            #_tend = int(_Pr.size)
-
+            # _tstart = np.maximum(2, 1 + _t_DEAD)
+            # _tend = int(_Pr.size)
 
         def simulation(self, dt, soc, P_set_res, P_set_pv, _Ppv, _Ppv2bat_in0, _Ppv2bat_in, _Pbat2ac_out0, _Pbat2ac_out,
-                      _Ppv2ac_out, _Ppvbs, _Pbat):
+                       _Ppv2ac_out, _Ppvbs, _Pbat):
             """Performance simulation function for DC-coupled battery systems
 
             :param d: array containing parameters
@@ -465,7 +462,7 @@ class Battery:
                 P_rpv = (self._E_BAT - E_b0) * 3600 / dt
             # When discharging take the correction factor into account
             elif E_bs_r < 0 and np.abs(E_bs_r) > E_b0:
-                P_r = (E_b0 * 3600 / dt) * (1 - self.corr)
+                P_r = (E_b0 * 3600 / dt) * (1 - self._corr)
 
             # Decision if the battery should be charged or discharged
             if P_rpv > 0 and soc < 1 - self._th * (1 - self._SOC_h):
@@ -624,4 +621,3 @@ d = {'Test_values': test_values, 'P_BS': p_bs_list, 'SOC': soc_list}
 df = pd.DataFrame(d)
 df['SOC'] = df['SOC'] * 100
 print(max(soc_list))
-
