@@ -434,9 +434,13 @@ class DCBatMod:
         # _tend = int(_Pr.size)
 
     # TODO Wie umgehen mit _Ppv2ac_out
-    def simulation(self, dt, soc, P_set_res, P_set_pv, _Ppv2ac_out, _Pbat):
+    def simulation(self, dt, soc, p_set_res, p_set_pv, _Ppv2ac_out):
         """Performance simulation function for DC-coupled battery systems
 
+        :param p_set_pv: DC set point power from the PV system connected to the DC side of the battery system
+        :type p_set_pv: float
+        :param p_set_res: AC set point power on the AC side of the battery system
+        :type p_set_res: float
         :param soc: state of charge of the battery in 0-1 (e.g. 0%-100%)
         :type soc: float
         :param d: array containing parameters
@@ -470,8 +474,8 @@ class DCBatMod:
         """
 
         # Inputs
-        P_r = P_set_res
-        P_rpv = P_set_pv
+        P_r = p_set_res  # Residual power at the AC side of the battery system
+        P_rpv = p_set_pv  # PV power at the DC side of the battery system
 
         # Energy content of the battery in the previous time step
         E_b0 = soc * self._E_BAT
@@ -613,7 +617,7 @@ class DCBatMod:
         else:
             self._th = False
 
-        return _Ppv2ac_out, _Ppv2bat_in, _Pbat2ac_out, _Ppvbs, _Pbat, soc
+        return _Ppv2ac_out, _Ppvbs, _Pbat, soc
 
 
 if __name__ == "__main__":
