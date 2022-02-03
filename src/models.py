@@ -2,12 +2,12 @@
 import os
 from math import sqrt
 from collections import namedtuple
-from typing import Dict, Tuple
+from typing import Dict, Tuple, NamedTuple
 import pandas as pd
-#import numpy as np
+import numpy as np
 
 
-def load_parameters(model_name: str = None) -> Dict:
+def load_parameters(model_id: str = None) -> Dict:
     """Loads model specific parameters from the database.
 
     :param model_name: Model Name, defaults to None
@@ -21,12 +21,15 @@ def load_parameters(model_name: str = None) -> Dict:
                                                         "src",
                                                         "bslib_database.csv")))
 
-    database = database.loc[database['ID'] == model_name]
+    if model_id in database.ID.values:
+        database = database.loc[database['ID'] == model_id]
+    else:
+        raise ValueError(f"Parameters for model {model_id} could not be found in database.")
 
     database.columns = database.columns.str.replace(r"\[W]", "", regex=True)
     database.columns = database.columns.str.replace(r"\[V]", "", regex=True)
     database.columns = database.columns.str.replace(r"\[s]", "", regex=True)
-    database.columns = database.columns.str.replace(r"\[kwH]", "", regex=True)
+    database.columns = database.columns.str.replace(r"\[kWh]", "", regex=True)
     database.columns = database.columns.str.replace(r"\[-coupled]", "", regex=True)
     # Remove trailing and leading whitespaces
     database.columns = database.columns.str.strip()
@@ -150,25 +153,26 @@ class Battery:
             if e_bat_custom is None:
                 raise TypeError('Custom value for the battery capacity is not specified.')
 
-        self.model = self.__load_model(p_pv, p_inv_custom, e_bat_custom)
+        self.model = self.__load_model(p_inv_custom, e_bat_custom)
 
-    def __load_model(self, p_pv, p_inv_custom, e_bat_custom):
+    def __load_model(self, p_inv_custom, e_bat_custom):
         if self.parameter['Type'] == 'AC':
-            return ACBatMod(self.parameter, p_inv_custom, e_bat_custom)
+            return ACBatMod(self.parameter, p_inv_custom=p_inv_custom, e_bat_custom=e_bat_custom)
         if self.parameter['Type'] == 'DC':
-            return DCBatMod(self.parameter, p_pv, p_inv_custom, e_bat_custom)
+            pass
+            # return DCBatMod(self.parameter, p_pv, p_inv_custom, e_bat_custom)
 
     def simulate(self, **kwargs):
         return self.model.simulate(**kwargs)
 
 
 class ACBatMod:
-    def __init__(self, parameter: Dict, **custom_values):
-        r"""Performance Simulation function for AC-coupled battery systems
+    def __init__(self, parameter: dict, **custom_values):
+        r"""Performance simulation class for AC-coupled battery systems
 
         :param parameter: Parameters of the battery system
         :type parameter: dict
-        :param \**kwargs:
+        :param \**custom_values:
         See below
 
         :Keyword Arguments:
@@ -177,157 +181,172 @@ class ACBatMod:
             * *e_bat_custom* (``float``) --
               Custom battery capacity kWh
         """
+        # System sizing
+        self._E_BAT = parameter['E_BAT'] * 1000  # Mean usable battery capacity in Wh
+        self._P_AC2BAT_IN = parameter['P_AC2BAT_in']  # Nominal AC charging power in kW
+        self._P_BAT2AC_OUT = parameter['P_BAT2AC_out']  # Nominal AC discharging power in kW
 
-        self._E_BAT = parameter['E_BAT']  # Mean usable battery capacity in kWh
-        self._eta_BAT = parameter['eta_BAT']  # Mean battery efficiency
+        # Conversion losses
+        self._ETA_BAT = parameter['eta_BAT'] / 100  # Mean battery efficiency from 0 to 1 representing 0 to 100%
+        # Polynomial curve fitting parameters of the power loss functions in W
+        self._AC2BAT_A_IN = parameter['AC2BAT_a_in']
+        self._AC2BAT_B_IN = parameter['AC2BAT_b_in']
+        self._AC2BAT_C_IN = parameter['AC2BAT_c_in']
+        self._BAT2AC_A_OUT = parameter['BAT2AC_a_out']
+        self._BAT2AC_B_OUT = parameter['BAT2AC_b_out']
+        self._BAT2AC_C_OUT = parameter['BAT2AC_c_out']
+
+        # Control losses
+        # Threshold to adjust the hysteresis to avoid
+        # alternation between charging and discharging
+        self._SOC_THRESHOLD = parameter['SOC_h']  # Hysteresis threshold for the recharging of the battery
+        self._threshold = False
+        self._P_AC2BAT_DEV = parameter['P_AC2BAT_DEV']  # Mean stationary deviation of the charging power in W
+        self._P_BAT2AC_DEV = parameter['P_BAT2AC_DEV']  # Mean stationary deviation of the discharging power in W
+
+        # Standby losses
         self._P_SYS_SOC0_DC = parameter['P_SYS_SOC0_DC']  # Standby DC power consumption in discharged state in W
         self._P_SYS_SOC0_AC = parameter['P_SYS_SOC0_AC']  # Standby AC power consumption in discharged state in W
         self._P_SYS_SOC1_DC = parameter['P_SYS_SOC1_DC']  # Standby DC power consumption in charged state in W
         self._P_SYS_SOC1_AC = parameter['P_SYS_SOC1_AC']  # Standby AC power consumption in charged state in W
-        self._P_AC2BAT_DEV = parameter['P_AC2BAT_DEV']  # Mean stationary deviation of the charging power in W
-        self._P_BAT2AC_DEV = parameter['P_BAT2AC_DEV']  # Mean stationary deviation of the discharging power in W
-        self._P_AC2BAT_in = parameter['P_AC2BAT_in']  # Nominal AC charging power in kW
-        self._P_BAT2AC_out = parameter['P_BAT2AC_out']  # Nominal AC discharging power in kW
-
-        # Polynomial curve fitting parameters of the power loss functions in W
-        self._AC2BAT_a_in = parameter['AC2BAT_a_in']
-        self._AC2BAT_b_in = parameter['AC2BAT_b_in']
-        self._AC2BAT_c_in = parameter['AC2BAT_c_in']
-        self._BAT2AC_a_out = parameter['BAT2AC_a_out']
-        self._BAT2AC_b_out = parameter['BAT2AC_b_out']
-        self._BAT2AC_c_out = parameter['BAT2AC_c_out']
+        self._P_PERI = parameter['P_PERI_AC']  # AC power consumption of other system components in W
 
         if parameter['Manufacturer (PE)'] == 'Generic':
-            self._P_AC2BAT_in = custom_values["p_inv_custom"] * 1000  # Custom inverter power in kW
-            self._P_BAT2AC_out = custom_values["p_inv_custom"] * 1000  # Custom inverter power in kW
-            self._E_BAT = self._E_BAT * custom_values["e_bat_custom"]  # Custom battery capacity kWh
+            self._P_AC2BAT_IN = custom_values["p_inv_custom"]  # Custom inverter power in kW
+            self._P_BAT2AC_OUT = custom_values["p_inv_custom"] # Custom inverter power in kW
+            self._E_BAT = custom_values["e_bat_custom"] * 1000  # Custom battery capacity Wh
             self._P_SYS_SOC1_DC = self._P_SYS_SOC1_DC * self._E_BAT
-            self._P_SYS_SOC1_AC = self._P_SYS_SOC1_AC * self._P_BAT2AC_out
-
-        # Threshold to adjust the hysteresis to avoid
-        # alternation between charging and discharging
-        self._SOC_h = parameter['SOC_h']
-        self._threshold = False
+            self._P_SYS_SOC1_AC = self._P_SYS_SOC1_AC * self._P_BAT2AC_OUT
 
         # Minimum AC charging power
-        self._P_AC2BAT_min = self._AC2BAT_c_in
+        self._P_AC2BAT_MIN = self._AC2BAT_C_IN
         # Minimum AC discharging power
-        self._P_BAT2AC_min = self._BAT2AC_c_out
+        self._P_BAT2AC_MIN = self._BAT2AC_C_OUT
 
         # Correction factor to avoid overcharging of the battery
-        self._corr = 0.1
-        # Capacity of the battery, conversion from kWh to Wh
-        self._E_BAT *= 1000
-        # Efficiency of the battery in percent
-        self._eta_BAT /= 100
+        self._CORR_FACTOR = 0.1
+
         # Stores the AC power and the state of charge of the battery system
-        self._Results = namedtuple('Results', ['p_bs', 'soc'])
+        self._Results = namedtuple("Results", ["p_bs", "p_bat", "soc"])
 
-    def simulate(self, *, p_set: float, soc: float, dt: int) -> Tuple[float, float]:
+    def simulate(self, *, p_set: float, soc: float, dt: int) -> Tuple[float, float, float]:
+        r"""Simulation function for AC-coupled battery systems.
 
-        # Inputs
-        p_bs = p_set
+        :param p_set: Set point for the power on the AC side of the battery system in W.
+                      A positive value represents an excess power.
+                      A negative value represents a power demand.
+        :type p_set: float
 
-        # Energy content of the battery in the previous time step
+        :param soc: State of charge of the battery. Range 0 to 1 represents 0 to 100%.
+        :type soc: float
+
+        :param dt: Time increment in seconds.
+        :type dt: integer
+
+        :return: Power on the AC side (py:attribute::p_bs) and DC side (py:attribute::p_bat) of the battery system.
+                 As well as the state of charge (py:attribute::soc) of the battery.
+        :rtype: namedtuple[p_bs, p_bat, soc]
+
+        """
+
+        # AC power of the battery with respect to additional power consumption
+        # of other system components in W
+        p_bs = p_set - self._P_PERI
+
+        # Energy content of the battery before calculations in Ws
         e_b0 = soc * self._E_BAT
-
-        # Calculate the AC power of the battery system from the residual power
 
         # Check if the battery holds enough unused capacity for charging or discharging
         # Estimated amount of energy in Wh that is supplied to or discharged from the storage unit.
         e_bs_est = p_bs * dt / 3600
-
-        # Reduce p_bs to avoid over charging of the battery
+        # Reduce the power on the AC side to avoid over charging of the battery
         if e_bs_est > 0 and e_bs_est > (self._E_BAT - e_b0):
             p_bs = (self._E_BAT - e_b0) * 3600 / dt
         # When discharging take the correction factor into account
         elif e_bs_est < 0 and abs(e_bs_est) > e_b0:
-            p_bs = -((e_b0 * 3600 / dt) * (1 - self._corr))
+            p_bs = -((e_b0 * 3600 / dt) * (1 - self._CORR_FACTOR))
 
         # Adjust the AC power of the battery system due to the stationary
-        # deviations taking the minimum charging and discharging power into
+        # deviations, taking the minimum charging and discharging power into
         # account
-        if p_bs > self._P_AC2BAT_min:
-            p_bs = max(self._P_AC2BAT_min, p_bs + self._P_AC2BAT_DEV)
+        if p_bs > self._P_AC2BAT_MIN:
+            p_bs = max(self._P_AC2BAT_MIN, p_bs + self._P_AC2BAT_DEV)
 
-        elif p_bs < -self._P_BAT2AC_min:
-            p_bs = min(-self._P_BAT2AC_min, p_bs - self._P_BAT2AC_DEV)
+        elif p_bs < -self._P_BAT2AC_MIN:
+            p_bs = min(-self._P_BAT2AC_MIN, p_bs - self._P_BAT2AC_DEV)
 
         else:
-            p_bs = 0
+            p_bs = 0.0
 
         # Limit the AC power of the battery system to the rated power of the
         # battery converter
-        p_bs = max(-self._P_BAT2AC_out * 1000,
-                   min(self._P_AC2BAT_in * 1000, p_bs))
+        p_bs = max(-self._P_BAT2AC_OUT * 1000,
+                   min(self._P_AC2BAT_IN * 1000, p_bs))
 
-        # Decision if the battery should be charged or discharged
-        if p_bs > 0 and soc < 1 - self._threshold * (1 - self._SOC_h):  # Charging
-            # The last term th*(1-SOC_h) avoids the alternation between
-            # charging and standby mode due to the DC power consumption of the
-            # battery converter when the battery is fully charged. The battery
-            # will not be recharged until the SOC falls below the SOC-threshold
-            # (SOC_h) for recharging from PV.
+        # Check whether the battery will be charged or discharged
+        if p_bs > 0 and soc < 1 - self._threshold * (1 - self._SOC_THRESHOLD):  # Charging
+            # The second operand avoids the alternation between charging and standby mode
+            # due to the DC power consumption of the battery converter when the battery is fully charged.
+            # The battery will not be recharged until the SOC falls below the SOC-threshold
+            # for recharging from PV.
 
             # Normalized AC power of the battery system
-            p_bs_norm = p_bs / self._P_AC2BAT_in / 1000
+            p_bs_norm = p_bs / self._P_AC2BAT_IN / 1000
 
             # DC power of the battery affected by the AC2BAT conversion losses
-            # of the battery converter
-            p_bat = max(0, p_bs - (self._AC2BAT_a_in * p_bs_norm * p_bs_norm
-                                   + self._AC2BAT_b_in * p_bs_norm
-                                   + self._AC2BAT_c_in))
+            # of the battery converter in W
+            p_bat = max(0, p_bs - (self._AC2BAT_A_IN * p_bs_norm * p_bs_norm
+                                   + self._AC2BAT_B_IN * p_bs_norm
+                                   + self._AC2BAT_C_IN))
 
         elif p_bs < 0 and soc > 0:  # Discharging
             # Normalized AC power of the battery system
-            p_bs_norm = abs(p_bs / self._P_BAT2AC_out / 1000)
+            p_bs_norm = abs(p_bs / self._P_BAT2AC_OUT / 1000)
 
             # DC power of the battery affected by the BAT2AC conversion losses
-            # of the battery converter
-            p_bat = p_bs - (self._BAT2AC_a_out * p_bs_norm * p_bs_norm
-                            + self._BAT2AC_b_out * p_bs_norm
-                            + self._BAT2AC_c_out)
+            # of the battery converter in W
+            p_bat = p_bs - (self._BAT2AC_A_OUT * p_bs_norm * p_bs_norm
+                            + self._BAT2AC_B_OUT * p_bs_norm
+                            + self._BAT2AC_C_OUT)
 
         else:  # Neither charging nor discharging of the battery
-            # Set the DC power of the battery to zero
-            p_bat = 0
+            # Set the DC power of the battery to 0W
+            p_bat = 0.0
 
-        # Decision if the standby mode is active
+        # Check if the battery system is in standby mode
         if p_bat == 0:
             if soc <= 0:  # Standby mode in discharged state
-                # DC and AC power consumption of the battery converter
+                # DC power consumption of the battery converter in W
                 p_bat = -max(0, self._P_SYS_SOC0_DC)
+                # AC power consumption of the battery converter in W
                 p_bs = self._P_SYS_SOC0_AC
 
             else:  # Standby mode in fully charged state
-                # DC and AC power consumption of the battery converter
+                # DC consumption of the battery converter in W
                 p_bat = -max(0, self._P_SYS_SOC1_DC)
+                # AC power consumption of the battery converter in W
                 p_bs = self._P_SYS_SOC1_AC
 
-        # Change the energy content of the battery from Ws to Wh conversion
-        if p_bat > 0:
-            e_b = e_b0 + p_bat * sqrt(self._eta_BAT) * dt / 3600
+        # Change the energy content of the battery and conversion from Ws to Wh
+        if p_bat > 0:  # Charging
+            e_b = e_b0 + p_bat * sqrt(self._ETA_BAT) * dt / 3600
 
-        elif p_bat < 0:
-            e_b = e_b0 + p_bat / sqrt(self._eta_BAT) * dt / 3600
+        elif p_bat < 0: # Discharging
+            e_b = e_b0 + p_bat / sqrt(self._ETA_BAT) * dt / 3600
 
         else:
             e_b = e_b0
 
-        # Calculate the state of charge of the battery
+        # Calculate the resulting state of charge of the battery
         soc = e_b / self._E_BAT
 
         # Adjust the hysteresis threshold to avoid alternation
         # between charging and standby mode due to the DC power
         # consumption of the battery converter.
-        #self._threshold = bool()
-        if self._threshold and soc > self._SOC_h or soc > 1:
-            self._threshold = True
-        else:
-            self._threshold = False
+        self._threshold = bool(self._threshold and soc > self._SOC_THRESHOLD or soc > 1)
 
         # Outputs
-        return self._Results(p_bs, soc)
+        return self._Results(p_bs=p_bs, p_bat=p_bat, soc=soc)
 
 
 # Check in DCBATMOD if when discharging the value has to be negative
@@ -626,17 +645,23 @@ class DCBatMod:
 
 if __name__ == "__main__":
 
-    battery = Battery(sys_id='S2')
+    pv_inv = 1  # kW
+    e_bat = 5  # kWh
 
-    dt = 60 * 15  # delta-t of 15 minutes
-    soc = 0  # state of charge at 0%
+    battery = Battery(sys_id='S2', p_inv_custom=pv_inv, e_bat_custom=e_bat)
 
-    # Array for testing with a timestep width of 15 minutes
-    test_values = np.empty(int(525600 / 15), )
-    test_values[:int(525600 / 15 / 2)] = 3000
-    test_values[int(525600 / 15 / 2):] = -3830
-    p_bs_list = []
-    soc_list = []
+    dt = 1  # delta-t
+    soc = 0.0  # state of charge at 0%
+    p_set = 123
+
+    results = battery.simulate(p_set=p_set, soc=soc, dt=dt)
+
+    # # Array for testing with a timestep width of 15 minutes
+    # test_values = np.empty(int(525600 / 15), )
+    # test_values[:int(525600 / 15 / 2)] = 3000
+    # test_values[int(525600 / 15 / 2):] = -3830
+    # p_bs_list = []
+    # soc_list = []
     """ From step 22 P_bs changes to 14.9.
     # In the block for charging 
     P_bat = np.maximum(0, P_bs - (self._AC2BAT_a_in * p_bs * p_bs
@@ -644,12 +669,12 @@ if __name__ == "__main__":
                                   + self._AC2BAT_c_in))
     P_bat is calculated as 0.0
     """
-    for value in test_values:
-        p_bs, soc = battery.simulate(P_setpoint=value, soc=soc, dt=dt)
-        p_bs_list.append(p_bs)
-        soc_list.append(soc)
+    # for value in test_values:
+    #     p_bs, soc = battery.simulate(P_setpoint=value, soc=soc, dt=dt)
+    #     p_bs_list.append(p_bs)
+    #     soc_list.append(soc)
 
-    d = {'Test_values': test_values, 'P_BS': p_bs_list, 'SOC': soc_list}
-    df = pd.DataFrame(d)
-    df['SOC'] = df['SOC'] * 100
-    print(max(soc_list))
+    # d = {'Test_values': test_values, 'P_BS': p_bs_list, 'SOC': soc_list}
+    # df = pd.DataFrame(d)
+    # df['SOC'] = df['SOC'] * 100
+    # print(max(soc_list))
