@@ -43,7 +43,7 @@ def load_database():
                                                     "src",
                                                     "bslib_database.csv")))
 
-
+# Not used anymore included for legacy reasons
 def transform_dict_to_array(parameter):
     """Function for transforming a dict to an numpy array
 
