@@ -10,8 +10,8 @@ import numpy as np
 def load_parameters(model_id: str = None) -> Dict:
     """Loads model specific parameters from the database.
 
-    :param model_name: Model Name, defaults to None
-    :type model_name: str, optional
+    :param model_id: ID of the Model in the database, defaults to None
+    :type model_id: str, optional
     :return: Parameter of the specified model
     :rtype: dict
     """
@@ -42,6 +42,7 @@ def load_database():
                                                     "..",
                                                     "src",
                                                     "bslib_database.csv")))
+
 
 # Not used anymore included for legacy reasons
 def transform_dict_to_array(parameter):
@@ -644,17 +645,17 @@ class DCBatMod:
 
 
 if __name__ == "__main__":
-
-    pv_inv = 1  # kW
-    e_bat = 5  # kWh
-
-    battery = Battery(sys_id='S2', p_inv_custom=pv_inv, e_bat_custom=e_bat)
-
-    dt = 1  # delta-t
-    soc = 0.0  # state of charge at 0%
-    p_set = 123
-
-    results = battery.simulate(p_set=p_set, soc=soc, dt=dt)
+    
+    # pv_inv = 1  # kW
+    # e_bat = 5  # kWh
+    #
+    # battery = Battery(sys_id='S2', p_inv_custom=pv_inv, e_bat_custom=e_bat)
+    #
+    # dt = 1  # delta-t
+    # soc = 0.0  # state of charge at 0%
+    # p_set = 123
+    #
+    # results = battery.simulate(p_set=p_set, soc=soc, dt=dt)
 
     # # Array for testing with a timestep width of 15 minutes
     # test_values = np.empty(int(525600 / 15), )
