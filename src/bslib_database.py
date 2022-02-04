@@ -6,7 +6,7 @@ import numpy as np
 
 
 def read_excel_to_df():
-    """This functions reads an Microsoft Excel file and returns it as an pandas data frame"""
+    """This functions reads a Microsoft Excel file and returns it as a pandas data frame"""
     df = pd.read_excel(os.path.abspath(os.path.join(os.path.dirname(__file__),
                                                     "..",
                                                     "input",
@@ -20,9 +20,7 @@ def read_excel_to_df():
 
     # Drop first 4 columns
     df = df.iloc[:, 4:]
-
     df = df.drop('Unit', axis=1)
-
     df = df.dropna(how="all", axis=1)
 
     return df
@@ -49,8 +47,7 @@ def assign_specific_values(parameter):
         parameter['P_BAT2AC_out'] = parameter['P_BAT2AC_out_DCC']
 
     # Specific parameters of PV inverters and AC-coupled systems
-    if parameter['Top'] == 'PVINV' or parameter['Top'] == 'AC' and \
-            parameter['P_PV2AC_out_PVINV'] is not None:
+    if parameter['Top'] in {'PVINV', 'AC'} and parameter['P_PV2AC_out_PVINV']:
         parameter['P_PV2AC_out'] = parameter['P_PV2AC_out_PVINV']
 
     # Specific parameters of PV-coupled systems
@@ -73,7 +70,7 @@ def assign_specific_values(parameter):
                      ]
 
     for par in convert_to_kw:
-        if parameter[par] is not None:
+        if parameter[par]:
             parameter[par] = parameter[par] / 1000
 
     return parameter
@@ -319,13 +316,11 @@ def eta2abc(parameter):
     :rtype: dict
     """
     # PV2AC conversion pathway TODO
-    if parameter['Top'] == 'DC' or parameter['Top'] == 'PVINV' or parameter['Top'] == 'PV' and parameter[
-        'P_PV2AC_out'] is not None or parameter['Top'] == 'AC' and parameter['P_PV2AC_out'] is not None:
+    if parameter['Top'] in {'DC', 'PVINV', 'PV'} and parameter['P_PV2AC_out'] \
+            or parameter['Top'] == 'AC' and parameter['P_PV2AC_out']:
         # Create variables for the sampling points and corresponding efficiencies TODO
-        p_pv2ac = np.fromiter((value for key, value in parameter.items() if 'p_PV2AC_' in key and value is not None),
-                              float)
-        eta_pv2ac = np.fromiter(
-            (value / 100 for key, value in parameter.items() if 'eta_PV2AC_' in key and value is not None), float)
+        p_pv2ac = np.fromiter((value for key, value in parameter.items() if 'p_PV2AC_' in key and value), float)
+        eta_pv2ac = np.fromiter((value / 100 for key, value in parameter.items() if 'eta_PV2AC_' in key and value), float)
 
         # Absolute input and output power in W
         p_pv2ac_out = parameter['P_PV2AC_out'] * p_pv2ac * 1000
@@ -336,7 +331,6 @@ def eta2abc(parameter):
         P_l_pv2ac_out = (1 / eta_pv2ac - 1) * p_pv2ac_out
 
         # Polynomial curve fitting parameters of the power loss functions in W
-
         # Based on input power
         p = np.polyfit(p_pv2ac_in / parameter['P_PV2AC_in'] / 1000, P_l_pv2ac_in, 2)
         parameter['PV2AC_a_in'] = p[0]
@@ -350,14 +344,13 @@ def eta2abc(parameter):
         parameter['PV2AC_c_out'] = p[2]
 
     # PV2BAT conversion pathway
-    if parameter['Top'] == 'DC' or parameter['Top'] == 'PV':
+    if parameter['Top'] in {'DC', 'PV'}:
 
         # Create variables for the sampling points and corresponding efficiencies
         p_pv2bat = np.array([value for key, value in parameter.items() if 'p_PV2BAT_' in key])
         eta_pv2bat = np.array([value / 100 for key, value in parameter.items() if 'eta_PV2BAT_' in key])
 
         # Create missing variables
-
         # Nominal input power of the PV2BAT conversion pathway of DC-coupled systems
         if parameter['P_PV2BAT_in'] is None:
             parameter['P_PV2BAT_in'] = parameter['P_PV2BAT_out'] / (parameter['eta_PV2BAT_100'] / 100)
@@ -371,7 +364,6 @@ def eta2abc(parameter):
         P_l_pv2bat_out = (1 / eta_pv2bat - 1) * p_pv2bat_out
 
         # Polynomial curve fitting parameters of the power loss functions in W
-
         # Based on input power
         p = np.polyfit(p_pv2bat_in / parameter['P_PV2BAT_in'] / 1000, P_l_pv2bat_in, 2)
         parameter['PV2BAT_a_in'] = p[0]
@@ -385,7 +377,7 @@ def eta2abc(parameter):
         parameter['PV2BAT_c_out'] = p[2]
 
     # AC2BAT conversion pathway
-    if parameter['Top'] == 'AC' or parameter['Top'] == 'DC' and parameter['P_AC2BAT_in'] is not None:
+    if parameter['Top'] in {'AC', 'DC'} and parameter['P_AC2BAT_in']:
         # Create variables for the sampling points and corresponding efficiencies TODO
         p_ac2bat = np.fromiter((value for key, value in parameter.items() if 'p_AC2BAT_' in key), float)
         eta_ac2bat = np.fromiter((value / 100 for key, value in parameter.items() if 'eta_AC2BAT_' in key), float)
@@ -399,7 +391,6 @@ def eta2abc(parameter):
         P_l_ac2bat_out = (1 / eta_ac2bat - 1) * p_ac2bat_out
 
         # Polynomial curve fitting parameters of the power loss functions in W
-
         # Based on input power
         p = np.polyfit(p_ac2bat_in / parameter['P_AC2BAT_in'] / 1000, P_l_ac2bat_in, 2)
         parameter['AC2BAT_a_in'] = p[0]
@@ -413,8 +404,7 @@ def eta2abc(parameter):
         parameter['AC2BAT_c_out'] = p[2]
 
     # BAT2AC conversion pathway
-    if parameter['Top'] == 'AC' or parameter['Top'] == 'DC' or parameter['Top'] == 'PV' and parameter[
-        'P_BAT2AC_out'] is not None:
+    if parameter['Top'] in {'AC', 'DC', 'PV'} and parameter['P_BAT2AC_out']:
         # Create variables for the sampling points and corresponding efficiencies TODO
         p_bat2ac = np.fromiter((value for key, value in parameter.items() if 'p_BAT2AC_' in key), float)
         eta_bat2ac = np.fromiter((value / 100 for key, value in parameter.items() if 'eta_BAT2AC_' in key), float)
@@ -428,7 +418,6 @@ def eta2abc(parameter):
         P_l_bat2ac_out = (1 / eta_bat2ac - 1) * p_bat2ac_out
 
         # Polynomial curve fitting parameters of the power loss functions in W
-
         # Based on input power
         p = np.polyfit(p_bat2ac_in / parameter['P_BAT2AC_in'] / 1000, P_l_bat2ac_in, 2)
         parameter['BAT2AC_a_in'] = p[0]
@@ -456,7 +445,6 @@ def eta2abc(parameter):
         P_l_bat2pv_out = (1 / eta_bat2pv - 1) * p_bat2pv_out
 
         # Polynomial curve fitting parameters of the power loss functions in W
-
         # Based on input power TODO
         p = np.polyfit(p_bat2pv_in / parameter['P_BAT2AC_in'] / 1000, P_l_bat2pv_in, 2)
         parameter['BAT2PV_a_in'] = p[0]
@@ -469,12 +457,10 @@ def eta2abc(parameter):
         parameter['BAT2PV_b_out'] = p[1]
         parameter['BAT2PV_c_out'] = p[2]
 
-    # Additional parameters
-
     # Mean battery capacity in kWh
-    try:
+    if parameter['E_BAT_usable'] and parameter['eta_BAT']:
         parameter['E_BAT'] = (parameter['E_BAT_usable'] / parameter['eta_BAT'] * 100 + parameter['E_BAT_usable']) / 2
-    except:
+    else:
         parameter['E_BAT'] = None
 
     # Mean stationary deviation of the charging power in W
@@ -495,7 +481,7 @@ def eta2abc(parameter):
     # Time constant for the first-order time delay element in s
     try:
         parameter['t_CONSTANT'] = (parameter['t_SETTLING'] - round(parameter['t_DEAD'])) / 3
-    except:
+    except :
         parameter['t_CONSTANT'] = None
 
     # Hysteresis threshold for the recharging of the battery
