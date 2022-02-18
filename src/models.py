@@ -323,7 +323,7 @@ class ACBatMod:
         else:
             return e_b0
 
-    def simulate(self, *, p_load: float, soc: float, dt: int) -> NamedTuple[float, float, float]:
+    def simulate(self, *, p_load: float, soc: float, dt: int):
         r"""Simulation function for AC-coupled battery systems.
 
         :param p_load: Set point for the power on the AC side of the battery system in W.
@@ -380,7 +380,7 @@ class ACBatMod:
 
         # Change the energy content of the battery and conversion from Ws to Wh
         e_b = self.__change_battery_content(p_bat, e_b0, dt)
-        
+
         # Calculate the resulting state of charge of the battery
         soc = e_b / self._E_BAT
 
@@ -489,7 +489,7 @@ class DCBatMod:
         # Correction factor to avoid overcharge and discharge the battery
         self._CORR_FACTOR = 0.1
 
-        self.state = BatteryState
+        self._state = BatteryState
 
         # Stores the AC power and the state of charge of the battery system
         self._Results = namedtuple("Results", ["p_pvbs", "p_bat", "soc"])
@@ -524,7 +524,7 @@ class DCBatMod:
         # Residual power for battery discharging
         p_r = p_pv2ac_ac_out - p_ac
 
-        return p_r, p_rpv, p_pv_limited
+        return p_r, p_rpv, p_pv_limited, p_pv2ac_ac_out
 
     def __avoid_overcharging(self, p_r, p_rpv, e_b0, dt):
         # Check if the battery holds enough unused capacity for charging or discharging
@@ -548,9 +548,9 @@ class DCBatMod:
             battery converter when the battery is fully charged. The battery
             will not be recharged until the SOC falls below the SOC-threshold
             (SOC_h) for recharging from PV.'''
-            return self.state.CHARGING
+            return self._state.CHARGING
         elif p_rpv < 0 and soc > 0:
-            return self.state.DISCHARGING
+            return self._state.DISCHARGING
         else:
             return None
 
@@ -588,7 +588,7 @@ class DCBatMod:
                                          + self._PV2AC_C_IN))
         return p_pvbs, p_bat
 
-    def __discharge_battery(self, p_r, p_pv_limited):
+    def __discharge_battery(self, p_r, p_pv_limited, p_pv2ac_ac_out):
         # Discharging power
         p_bat2ac_out = p_r * - 1
 
@@ -597,14 +597,6 @@ class DCBatMod:
 
         # Adjust the discharging power to the maximum discharging power
         p_bat2ac_out = min(p_bat2ac_out, self._P_BAT2AC_OUT * 1000)
-
-        # Normalized DC input power of the PV2AC conversion pathway
-        p_pv2ac_dc_in_norm = p_pv_limited / self._P_PV2AC_IN / 1000
-
-        # Target AC output power of the PV2AC conversion pathway
-        p_pv2ac_ac_out = max(0, p_pv_limited - (self._PV2AC_A_IN * p_pv2ac_dc_in_norm * p_pv2ac_dc_in_norm
-                                                + self._PV2AC_B_IN * p_pv2ac_dc_in_norm
-                                                + self._PV2AC_C_IN))
 
         # Limit the discharging power to the maximum AC power output of the PV-battery system
         p_bat2ac_out = min(self._P_PV2AC_OUT * 1000 - p_pv2ac_ac_out, p_bat2ac_out)
@@ -626,21 +618,6 @@ class DCBatMod:
 
         # Realized AC power of the PV-battery system
         p_pvbs = p_pv2ac_ac_out + p_bat2ac_out
-
-        return p_pvbs, p_bat
-
-    def __idle_battery(self, p_pv_limited):
-
-        # Set the DC power of the battery to zero
-        p_bat = 0.0
-
-        # Normalized DC input power of the PV2AC conversion pathway
-        p_pv2ac_dc_in_norm = p_pv_limited / self._P_PV2AC_IN / 1000
-
-        # Target AC output power of the PV2AC conversion pathway
-        p_pvbs = max(0, p_pv_limited - (self._PV2AC_A_IN * p_pv2ac_dc_in_norm * p_pv2ac_dc_in_norm
-                                                + self._PV2AC_B_IN * p_pv2ac_dc_in_norm
-                                                + self._PV2AC_C_IN))
 
         return p_pvbs, p_bat
 
@@ -679,7 +656,7 @@ class DCBatMod:
         """
 
         # Inputs
-        p_r, p_rpv, p_pv_limited = self.__get_residual_power(p_load, p_pv)
+        p_r, p_rpv, p_pv_limited, p_pv2ac_ac_out = self.__get_residual_power(p_load, p_pv)
 
         # Current energy content of the battery
         e_b0 = soc * self._E_BAT
@@ -691,15 +668,16 @@ class DCBatMod:
         battery_state = self.__get_battery_state(p_rpv, soc)
 
         # Realized AC power of the PV-battery system
-        if battery_state == self.state.CHARGING:
+        if battery_state == self._state.CHARGING:
             p_pvbs, p_bat = self.__charge_battery(p_rpv, p_pv_limited)
 
-        elif battery_state == self.state.DISCHARGING:
-            p_pvbs, p_bat = self.__discharge_battery(p_r, p_pv_limited)
+        elif battery_state == self._state.DISCHARGING:
+            p_pvbs, p_bat = self.__discharge_battery(p_r, p_pv_limited, p_pv2ac_ac_out)
 
         else:  # Neither charging nor discharging of the battery
             # Realized AC power of the PV-battery system
-            p_pvbs, p_bat = self.__idle_battery(p_pv_limited)
+            p_bat = 0.0
+            p_pvbs = p_pv2ac_ac_out
 
         # Decision if the standby mode is active
         if p_bat == 0:
@@ -720,7 +698,9 @@ class DCBatMod:
 
 
 if __name__ == "__main__":
-    
+    dc_battery = DCBatMod("S3")
+    dc_battery.simulation(p_load=500, p_pv=350, soc=0, dt=1)
+    db = load_database()
     # pv_inv = 1  # kW
     # e_bat = 5  # kWh
     #
