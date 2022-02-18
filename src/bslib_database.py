@@ -119,8 +119,6 @@ def drop_columns(df):
         "U_BAT_min",
         "U_BAT_nom",
         "U_BAT_max",
-        "P_PV2AC_in",
-        "P_PV2AC_out",
         "P_PV2AC_out_AC",
         "p_PV2AC_5",
         "p_PV2AC_10",
