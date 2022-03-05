@@ -356,7 +356,7 @@ class DCBatMod:
         self._P_BAT2AC_DEV = self.__parameter["P_BAT2AC_DEV"]  # Mean stationary deviation of the discharging power in W
 
         # Standby losses
-        self._P_SYS_SOC1_AC = self.__parameter["_P_SYS_SOC1_AC"]  # AC standby power consumption in charged state in W
+        self._P_SYS_SOC1_AC = self.__parameter["P_SYS_SOC1_AC"]  # AC standby power consumption in charged state in W
         self._P_SYS_SOC0_AC = self.__parameter["P_SYS_SOC0_AC"]  # DC standby power consumption in discharged state in W
         self._P_SYS_SOC1_DC = self.__parameter["P_SYS_SOC1_DC"]  # DC standby power consumption in charged state in W
         self._P_SYS_SOC0_DC = self.__parameter["P_SYS_SOC0_DC"]  # AC standby power consumption in discharged state in W
@@ -589,6 +589,8 @@ class DCBatMod:
 
 
 if __name__ == "__main__":
+    ac_battery = ACBatMod("S2")
+    result = ac_battery.simulate(p_load=500, soc=0.0, dt=1)
     dc_battery = DCBatMod("S3")
-    dc_battery.simulation(p_load=500, p_pv=350, soc=0, dt=1)
-    db = load_database()
+    result = dc_battery.simulation(p_load=500, p_pv=350, soc=0, dt=1)
+
