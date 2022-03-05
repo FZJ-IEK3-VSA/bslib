@@ -2,9 +2,8 @@
 import os
 from enum import Enum, auto
 from math import sqrt
-from collections import namedtuple
-from typing import Dict, Tuple, NamedTuple
-import pandas as pd
+from typing import Union, NamedTuple
+import pandas as pd  # type: ignore
 import numpy as np
 
 
@@ -13,7 +12,7 @@ class BatteryState(Enum):
     DISCHARGING = auto()
 
 
-def load_parameters(system_id: str) -> Dict:
+def load_parameters(system_id: str) -> dict:
     """Loads model specific parameters from the database.
 
     :param system_id: ID of the Model in the database, defaults to None
@@ -50,131 +49,8 @@ def load_database():
                                                     "bslib_database.csv")))
 
 
-# Not used anymore included for legacy reasons
-def transform_dict_to_array(parameter):
-    """Function for transforming a dict to an numpy array
-
-    :param parameter: dict of system parameters
-    :type parameter: dict
-    :return: array of system parameters
-    :rtype: numpy array
-    """
-    # Der Standby-SOC1_AC
-    if parameter['Type'] == 'AC':
-        d = np.array(parameter['E_BAT'])  # 0 multi mit dem gewünschten Kapazität
-        d = np.append(d, parameter['eta_BAT'])  # 1
-        d = np.append(d, parameter['t_CONSTANT'])  # 2
-        d = np.append(d, parameter['P_SYS_SOC0_DC'])  # 3
-        d = np.append(d, parameter['P_SYS_SOC0_AC'])  # 4
-        d = np.append(d, parameter['P_SYS_SOC1_DC'])  # 5 multi mit Kapazität in kWh
-        d = np.append(d, parameter['P_SYS_SOC1_AC'])  # 6 multi mit WR-Leistung in W / 1000
-        d = np.append(d, parameter['AC2BAT_a_in'])  # 7
-        d = np.append(d, parameter['AC2BAT_b_in'])  # 8
-        d = np.append(d, parameter['AC2BAT_c_in'])  # 9
-        d = np.append(d, parameter['BAT2AC_a_out'])  # 10
-        d = np.append(d, parameter['BAT2AC_b_out'])  # 11
-        d = np.append(d, parameter['BAT2AC_c_out'])  # 12
-        d = np.append(d, parameter['P_AC2BAT_DEV'])  # 13
-        d = np.append(d, parameter['P_BAT2AC_DEV'])  # 14
-        d = np.append(d, parameter['P_BAT2AC_out'])  # 15 multi mit gewünschten WR-Leistung in W / 1000
-        d = np.append(d, parameter['P_AC2BAT_in'])  # 16 multi mit gewünschten WR-Leistung in W / 1000
-        d = np.append(d, parameter['t_DEAD'])  # 17
-        d = np.append(d, parameter['SOC_h'])  # 18
-
-    if parameter['Type'] == 'DC':
-        d = np.array(parameter['E_BAT'])  # 1
-        d = np.append(d, parameter['P_PV2AC_in'])  # 2
-        d = np.append(d, parameter['P_PV2AC_out'])  # 3
-        d = np.append(d, parameter['P_PV2BAT_in'])  # 4
-        d = np.append(d, parameter['P_BAT2AC_out'])  # 5
-        d = np.append(d, parameter['PV2AC_a_in'])  # 6
-        d = np.append(d, parameter['PV2AC_b_in'])  # 7
-        d = np.append(d, parameter['PV2AC_c_in'])  # 8
-        d = np.append(d, parameter['PV2BAT_a_in'])  # 9
-        d = np.append(d, parameter['PV2BAT_b_in'])  # 10
-        d = np.append(d, parameter['BAT2AC_a_out'])  # 11
-        d = np.append(d, parameter['BAT2AC_b_out'])  # 12
-        d = np.append(d, parameter['BAT2AC_c_out'])  # 13
-        d = np.append(d, parameter['eta_BAT'])  # 14
-        d = np.append(d, parameter['SOC_h'])  # 15
-        d = np.append(d, parameter['P_PV2BAT_DEV'])  # 16
-        d = np.append(d, parameter['P_BAT2AC_DEV'])  # 17
-        d = np.append(d, parameter['t_DEAD'])  # 18
-        d = np.append(d, parameter['t_CONSTANT'])  # 19
-        d = np.append(d, parameter['P_SYS_SOC1_DC'])  # 20
-        d = np.append(d, parameter['P_SYS_SOC0_AC'])  # 21
-        d = np.append(d, parameter['P_SYS_SOC0_DC'])  # 22
-
-    if parameter['Type'] == 'PV':
-        d = np.array(parameter['E_BAT'])
-        d = np.append(d, parameter['P_PV2AC_in'])
-        d = np.append(d, parameter['P_PV2AC_out'])
-        d = np.append(d, parameter['P_PV2BAT_in'])
-        d = np.append(d, parameter['P_BAT2PV_out'])
-        d = np.append(d, parameter['PV2AC_a_in'])
-        d = np.append(d, parameter['PV2AC_b_in'])
-        d = np.append(d, parameter['PV2AC_c_in'])
-        d = np.append(d, parameter['PV2BAT_a_in'])
-        d = np.append(d, parameter['PV2BAT_b_in'])
-        d = np.append(d, parameter['PV2BAT_c_in'])
-        d = np.append(d, parameter['PV2AC_a_out'])
-        d = np.append(d, parameter['PV2AC_b_out'])
-        d = np.append(d, parameter['PV2AC_c_out'])
-        d = np.append(d, parameter['BAT2PV_a_out'])
-        d = np.append(d, parameter['BAT2PV_b_out'])
-        d = np.append(d, parameter['BAT2PV_c_out'])
-        d = np.append(d, parameter['eta_BAT'])
-        d = np.append(d, parameter['SOC_h'])
-        d = np.append(d, parameter['P_PV2BAT_DEV'])
-        d = np.append(d, parameter['P_BAT2AC_DEV'])
-        d = np.append(d, parameter['P_SYS_SOC1_DC'])
-        d = np.append(d, parameter['P_SYS_SOC0_AC'])
-        d = np.append(d, parameter['P_SYS_SOC0_DC'])
-        d = np.append(d, parameter['t_DEAD'])
-        d = np.append(d, parameter['t_CONSTANT'])
-
-    return d
-
-
-# Einige Parameter bei generic angeben
-# Parameter wie Standby Verlust sind abhängig von anderen Parametern und werden nachträglich brechnet.
-# Generic Topologie angeben. Checken ob generic ausgewählt wurde.
-# Kapazität und Leistung vom WR reteed Power AC-Seite angeben.
-
-
-class Battery:
-    def __init__(self,
-                 sys_id: str = None,
-                 *,
-                 p_pv: float = None,  # rated power of the PV inverter in kWp ToDo Ist diese Variable noch notwendig?
-                 p_inv_custom: float = None,  # power of the inverter in kW
-                 e_bat_custom: float = None  # capacity of the battery in kWh
-                 ):
-        self.parameter = load_parameters(sys_id)
-        if self.parameter['Type'] == 'DC' and p_pv is None:
-            raise TypeError('Rated power of the PV generator is not specified.')
-
-        if self.parameter['Manufacturer (PE)'] == 'Generic':
-            if p_inv_custom is None:
-                raise TypeError('Custom value for the inverter power is not specified.')
-            if e_bat_custom is None:
-                raise TypeError('Custom value for the battery capacity is not specified.')
-
-        self.model = self.__load_model(p_inv_custom, e_bat_custom)
-
-    def __load_model(self, p_inv_custom, e_bat_custom):
-        if self.parameter['Type'] == 'AC':
-            return ACBatMod(self.parameter, p_inv_custom=p_inv_custom, e_bat_custom=e_bat_custom)
-        if self.parameter['Type'] == 'DC':
-            pass
-            # return DCBatMod(self.parameter, p_pv, p_inv_custom, e_bat_custom)
-
-    def simulate(self, **kwargs):
-        return self.model.simulate(**kwargs)
-
-
 class ACBatMod:
-    def __init__(self, system_id: str, *, p_inv_custom: float = None, e_bat_custom: float = None):
+    def __init__(self, system_id: str, *, p_inv_custom: float = None, e_bat_custom: float = None) -> None:
         r"""Performance simulation class for AC-coupled battery systems
 
         :param system_id: Parameters of the battery system
@@ -185,7 +61,7 @@ class ACBatMod:
         :type e_bat_custom: float
         """
         # Load system parameter according to the given system id
-        self.__parameter = load_parameters(system_id)
+        self.__parameter: dict = load_parameters(system_id)
 
         if self.__parameter['Manufacturer (PE)'] == 'Generic':
             if p_inv_custom is None:
@@ -194,7 +70,7 @@ class ACBatMod:
                 raise TypeError('Custom value for the battery capacity is not specified.')
 
         # System sizing
-        self._E_BAT = self.__parameter['E_BAT'] * 1000  # Mean usable battery capacity in Wh
+        self._E_BAT: float = self.__parameter['E_BAT'] * 1000  # Mean usable battery capacity in Wh
         self._P_AC2BAT_IN = self.__parameter['P_AC2BAT_in']  # Nominal AC charging power in kW
         self._P_BAT2AC_OUT = self.__parameter['P_BAT2AC_out']  # Nominal AC discharging power in kW
 
@@ -226,7 +102,8 @@ class ACBatMod:
         if self.__parameter['Manufacturer (PE)'] == 'Generic':
             self._P_AC2BAT_IN = p_inv_custom  # Custom inverter power in kW
             self._P_BAT2AC_OUT = p_inv_custom  # Custom inverter power in kW
-            self._E_BAT = e_bat_custom * 1000  # Custom battery capacity Wh
+            # Custom battery capacity Wh
+            self._E_BAT = e_bat_custom * 1000  # type: ignore
             self._P_SYS_SOC1_DC = self._P_SYS_SOC1_DC * self._E_BAT
             self._P_SYS_SOC1_AC = self._P_SYS_SOC1_AC * self._P_BAT2AC_OUT
 
@@ -238,13 +115,14 @@ class ACBatMod:
         # Correction factor to avoid overcharging of the battery
         self._CORR_FACTOR = 0.1
 
-        # Stores the AC power and the state of charge of the battery system
-        self._Results = namedtuple("Results", ["p_bs", "p_bat", "soc"])
+        # Stores the AC/DC power and the state of charge of the battery system
+        self._Results = NamedTuple("Results", [("p_bs", float), ("p_bat", float), ("soc", float)])  # type: ignore
 
         # Stores the state of the battery
         self.state = BatteryState
 
-    def __avoid_overcharging(self, p_bs, e_b0, dt):
+    def __avoid_overcharging(self, p_bs: float, e_b0: float, dt: int) -> float:
+        """This method avoids overcharging the battery in both ways."""
         # Estimated amount of energy in Wh that is supplied to or discharged from the storage unit.
         e_bs_est = p_bs * dt / 3600
         # Reduce the power on the AC side to avoid over charging of the battery
@@ -256,7 +134,8 @@ class ACBatMod:
 
         return p_bs
 
-    def __adjust_to_stationary_deviations(self, p_bs):
+    def __adjust_to_stationary_deviations(self, p_bs: float) -> float:
+        """This method adjusts the AC power of the battery to the stationary deviations."""
         if p_bs > self._P_AC2BAT_MIN:
             return max(self._P_AC2BAT_MIN, p_bs + self._P_AC2BAT_DEV)
 
@@ -266,7 +145,8 @@ class ACBatMod:
         else:
             return 0.0
 
-    def __get_battery_state(self, p_bs, soc):
+    def __get_battery_state(self, p_bs: float, soc: float) -> Union[BatteryState, None]:
+        """This method determines the condition of the battery."""
         if p_bs > 0 and soc < 1 - self._threshold * (1 - self._SOC_THRESHOLD):
             # The last term th*(1-SOC_h) avoids the alternation between
             # charging and standby mode due to the DC power consumption of the
@@ -279,7 +159,8 @@ class ACBatMod:
         else:
             return None
 
-    def __charge_battery(self, p_bs):
+    def __charge_battery(self, p_bs: float) -> float:
+        """This method determines with how much energy the battery will be charged."""
         # Normalized AC power of the battery system
         p_bs_norm = p_bs / self._P_AC2BAT_IN / 1000
 
@@ -289,7 +170,8 @@ class ACBatMod:
                               + self._AC2BAT_B_IN * p_bs_norm
                               + self._AC2BAT_C_IN))
 
-    def __discharge_battery(self, p_bs):
+    def __discharge_battery(self, p_bs: float) -> float:
+        """This method determines with how much energy the battery will be discharged."""
         # Normalized AC power of the battery system
         p_bs_norm = abs(p_bs / self._P_BAT2AC_OUT / 1000)
 
@@ -299,7 +181,8 @@ class ACBatMod:
                        + self._BAT2AC_B_OUT * p_bs_norm
                        + self._BAT2AC_C_OUT)
 
-    def __standby_mode(self, soc):
+    def __standby_mode(self, soc: float) -> tuple[float, float]:
+        """This method determines which standby mode the battery system is in."""
         if soc <= 0:  # Standby mode in discharged state
             # AC and DC power consumption of the battery converter in W
             p_bat = -max(0, self._P_SYS_SOC0_DC)
@@ -312,7 +195,8 @@ class ACBatMod:
 
         return p_bs, p_bat
 
-    def __change_battery_content(self, p_bat, e_b0, dt):
+    def __change_battery_content(self, p_bat: float, e_b0: float, dt: int) -> float:
+        """This method determines the energy content of the battery."""
         # Change the energy content of the battery and conversion from Ws to Wh
         if p_bat > 0:  # Charging
             return e_b0 + p_bat * sqrt(self._ETA_BAT) * dt / 3600
@@ -323,7 +207,7 @@ class ACBatMod:
         else:
             return e_b0
 
-    def simulate(self, *, p_load: float, soc: float, dt: int):
+    def simulate(self, *, p_load: float, soc: float, dt: int) -> NamedTuple:
         r"""Simulation function for AC-coupled battery systems.
 
         :param p_load: Set point for the power on the AC side of the battery system in W.
@@ -435,11 +319,11 @@ class DCBatMod:
     :type dt: integer
     """
 
-    def __init__(self, system_id: str, *, p_inv_custom=None, e_bat_custom=None):
+    def __init__(self, system_id: str, *, p_inv_custom=None, e_bat_custom=None) -> None:
         """Constructor method
         """
         # Load system parameter according to the given system id
-        self.__parameter = load_parameters(system_id)
+        self.__parameter: dict = load_parameters(system_id)
 
         # System sizing
         self._E_BAT = self.__parameter["E_BAT"] * 1000  # Mean battery capacity in Wh
@@ -472,9 +356,10 @@ class DCBatMod:
         self._P_BAT2AC_DEV = self.__parameter["P_BAT2AC_DEV"]  # Mean stationary deviation of the discharging power in W
 
         # Standby losses
+        self._P_SYS_SOC1_AC = self.__parameter["_P_SYS_SOC1_AC"]  # AC standby power consumption in charged state in W
+        self._P_SYS_SOC0_AC = self.__parameter["P_SYS_SOC0_AC"]  # DC standby power consumption in discharged state in W
         self._P_SYS_SOC1_DC = self.__parameter["P_SYS_SOC1_DC"]  # DC standby power consumption in charged state in W
-        self._P_SYS_SOC0_AC = self.__parameter["P_SYS_SOC0_AC"]  # AC standby power consumption in discharged state in W
-        self._P_SYS_SOC0_DC = self.__parameter["P_SYS_SOC0_DC"]  # DC standby power consumption in discharged state in W
+        self._P_SYS_SOC0_DC = self.__parameter["P_SYS_SOC0_DC"]  # AC standby power consumption in discharged state in W
         self._P_PERI_AC = self.__parameter["P_PERI_AC"]  # AC power consumption of other system components in W
 
         if self.__parameter['Manufacturer (PE)'] == 'Generic':
@@ -492,10 +377,10 @@ class DCBatMod:
         self._state = BatteryState
 
         # Stores the AC power and the state of charge of the battery system
-        self._Results = namedtuple("Results", ["p_pvbs", "p_bat", "soc"])
+        self._Results = NamedTuple("Results", [("p_pvbs", float), ("p_bat", float), ("soc", float)])  # type: ignore
 
-    def __get_residual_power(self, p_load, p_pv):
-
+    def __get_residual_power(self, p_load: float, p_pv: float) -> tuple[float, float, float, float]:
+        """This method determines the residual power."""
         # Output of the PV generator limited to the maximum DC input power of the PV2AC conversion pathway
         p_pv_limited = min(p_pv, self._P_PV2AC_IN * 1000)
 
@@ -506,17 +391,17 @@ class DCBatMod:
         ppv2ac_ac_out_norm = min(p_ac, self._P_PV2AC_OUT * 1000) / self._P_PV2AC_OUT / 1000
 
         # Target DC input power of the PV2AC conversion pathway
-        p_pv2ac_dc_in = min(p_ac, self._P_PV2AC_OUT * 1000)+(self._PV2AC_A_OUT * ppv2ac_ac_out_norm * ppv2ac_ac_out_norm
-                                                             + self._PV2AC_B_OUT * ppv2ac_ac_out_norm
-                                                             + self._PV2AC_C_OUT)
+        p_pv2ac_dc_in = min(p_ac, self._P_PV2AC_OUT * 1000) + (self._PV2AC_A_OUT * ppv2ac_ac_out_norm * ppv2ac_ac_out_norm
+                                                               + self._PV2AC_B_OUT * ppv2ac_ac_out_norm
+                                                               + self._PV2AC_C_OUT)
 
         # Normalized DC input power of the PV2AC conversion pathway
         ppv2ac_dc_in_norm = p_pv_limited / self._P_PV2AC_IN / 1000
 
         # Target AC output power of the PV2AC conversion pathway
-        p_pv2ac_ac_out = max(0, p_pv_limited-(self._PV2AC_A_IN * ppv2ac_dc_in_norm * ppv2ac_dc_in_norm
-                                              + self._PV2AC_B_IN * ppv2ac_dc_in_norm
-                                              + self._PV2AC_C_IN))
+        p_pv2ac_ac_out = max(0, p_pv_limited - (self._PV2AC_A_IN * ppv2ac_dc_in_norm * ppv2ac_dc_in_norm
+                                                + self._PV2AC_B_IN * ppv2ac_dc_in_norm
+                                                + self._PV2AC_C_IN))
 
         # Residual power for battery charging
         p_rpv = p_pv_limited - p_pv2ac_dc_in
@@ -526,7 +411,8 @@ class DCBatMod:
 
         return p_r, p_rpv, p_pv_limited, p_pv2ac_ac_out
 
-    def __avoid_overcharging(self, p_r, p_rpv, e_b0, dt):
+    def __avoid_overcharging(self, p_r: float, p_rpv: float, e_b0: float, dt: int) -> tuple[float, float]:
+        """This method avoids overcharging the battery in both ways."""
         # Check if the battery holds enough unused capacity for charging or discharging
         # Estimated amount of energy that is supplied to or discharged from the storage unit.
         e_bs_rpv = p_rpv * dt / 3600
@@ -541,7 +427,8 @@ class DCBatMod:
 
         return p_r, p_rpv
 
-    def __get_battery_state(self, p_rpv, soc):
+    def __get_battery_state(self, p_rpv: float, soc: float) -> Union[BatteryState, None]:
+        """This method determines the condition of the battery."""
         if p_rpv > 0 and soc < 1 - self._threshold * (1 - self._SOC_THRESHOLD):
             '''The last term th*(1-SOC_h) avoids the alternation between
             charging and standby mode due to the DC power consumption of the
@@ -554,7 +441,8 @@ class DCBatMod:
         else:
             return None
 
-    def __charge_battery(self, p_rpv, p_pv_limited):
+    def __charge_battery(self, p_rpv: float, p_pv_limited: float) -> tuple[float, float]:
+        """This method determines with how much energy the battery will be charged."""
         # Charging power
         p_pv2bat_in = p_rpv
 
@@ -588,7 +476,8 @@ class DCBatMod:
                                          + self._PV2AC_C_IN))
         return p_pvbs, p_bat
 
-    def __discharge_battery(self, p_r, p_pv_limited, p_pv2ac_ac_out):
+    def __discharge_battery(self, p_r: float, p_pv_limited: float, p_pv2ac_ac_out: float) -> tuple[float, float]:
+        """This method determines with how much energy the battery will be charged."""
         # Discharging power
         p_bat2ac_out = p_r * - 1
 
@@ -621,7 +510,8 @@ class DCBatMod:
 
         return p_pvbs, p_bat
 
-    def __standby_mode(self, p_pvbs, p_bat, soc):
+    def __standby_mode(self, p_pvbs: float, p_bat: float, soc: float) -> tuple[float, float]:
+        """This method determines which standby mode the battery system is in."""
         if p_pvbs == 0 and soc <= 0:  # Standby mode in discharged state
             # DC and AC power consumption of the PV-battery inverter
             p_bat = -1 * max(0, self._P_SYS_SOC0_DC)
@@ -633,7 +523,8 @@ class DCBatMod:
 
         return p_pvbs, p_bat
 
-    def __change_energy_content(self, p_bat, e_b0, dt):
+    def __change_energy_content(self, p_bat: float, e_b0: float, dt: int) -> float:
+        """This method determines the energy content of the battery."""
         # Change the energy content of the battery Wx to Wh conversion
         if p_bat > 0:
             return e_b0 + p_bat * sqrt(self._eta_BAT) * dt / 3600
@@ -642,7 +533,7 @@ class DCBatMod:
         else:
             return e_b0
 
-    def simulation(self, *, p_load, p_pv, soc, dt):
+    def simulation(self, *, p_load: float, p_pv: float, soc: float, dt: int) -> NamedTuple:
         """Performance simulation function for DC-coupled battery systems
 
         :param p_load: AC set point for the AC power on the AC side of the battery system
@@ -701,36 +592,3 @@ if __name__ == "__main__":
     dc_battery = DCBatMod("S3")
     dc_battery.simulation(p_load=500, p_pv=350, soc=0, dt=1)
     db = load_database()
-    # pv_inv = 1  # kW
-    # e_bat = 5  # kWh
-    #
-    # battery = Battery(sys_id='S2', p_inv_custom=pv_inv, e_bat_custom=e_bat)
-    #
-    # dt = 1  # delta-t
-    # soc = 0.0  # state of charge at 0%
-    # p_set = 123
-    #
-    # results = battery.simulate(p_set=p_set, soc=soc, dt=dt)
-
-    # # Array for testing with a timestep width of 15 minutes
-    # test_values = np.empty(int(525600 / 15), )
-    # test_values[:int(525600 / 15 / 2)] = 3000
-    # test_values[int(525600 / 15 / 2):] = -3830
-    # p_bs_list = []
-    # soc_list = []
-    """ From step 22 P_bs changes to 14.9.
-    # In the block for charging 
-    P_bat = np.maximum(0, P_bs - (self._AC2BAT_a_in * p_bs * p_bs
-                                  + self._AC2BAT_b_in * p_bs
-                                  + self._AC2BAT_c_in))
-    P_bat is calculated as 0.0
-    """
-    # for value in test_values:
-    #     p_bs, soc = battery.simulate(P_setpoint=value, soc=soc, dt=dt)
-    #     p_bs_list.append(p_bs)
-    #     soc_list.append(soc)
-
-    # d = {'Test_values': test_values, 'P_BS': p_bs_list, 'SOC': soc_list}
-    # df = pd.DataFrame(d)
-    # df['SOC'] = df['SOC'] * 100
-    # print(max(soc_list))
