@@ -1,16 +1,20 @@
 """This files contains function to load and edit the data base for bslib"""
 import os
 
-import pandas as pd
+import pandas as pd  # type: ignore
 import numpy as np
 
 
-def read_excel_to_df():
-    """This functions reads a Microsoft Excel file and returns it as a pandas data frame"""
-    df = pd.read_excel(os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                                    "..",
-                                                    "input",
-                                                    "PerModPAR.xlsx")), sheet_name='Data')
+def read_excel_to_df() -> pd.DataFrame:
+    """This functions reads a Microsoft Excel file
+     and returns it as a pandas data frame"""
+    df = pd.read_excel(
+        os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "input",
+                "PerModPAR.xlsx")), sheet_name='Data')
 
     # Drop all columns after End marker
     end = df.loc[:, (df == 'End').any()].columns
@@ -26,7 +30,7 @@ def read_excel_to_df():
     return df
 
 
-def assign_specific_values(parameter):
+def assign_specific_values(parameter: dict) -> dict:
     # Assign specific parameters
     # parameter['P_PV2AC_out_PVINV'] = parameter[col_name][15].value
     parameter['P_PV2AC_out_PVINV'] = parameter['P_PV2AC_out']
@@ -76,7 +80,7 @@ def assign_specific_values(parameter):
     return parameter
 
 
-def transpose_df(df):
+def transpose_df(df: pd.DataFrame) -> pd.DataFrame:
     """This functions transposes the DataFrame
 
     :param df: DataFrame
@@ -100,7 +104,7 @@ def transpose_df(df):
     return df
 
 
-def drop_columns(df):
+def drop_columns(df: pd.DataFrame) -> pd.DataFrame:
     """This function drops certain columns from the DataFrame
 
     :param df: DataFrame
@@ -219,7 +223,7 @@ def drop_columns(df):
     return df
 
 
-def rename_columns(df):
+def rename_columns(df: pd.DataFrame) -> pd.DataFrame:
     """This function renames certain columns of the DataFrame
 
     :param df: DataFrame
@@ -273,19 +277,22 @@ def rename_columns(df):
     return df.rename(columns=renamed_cols)
 
 
-def export_to_csv(df):
+def export_to_csv(df: pd.DataFrame) -> None:
     """This function exports a DataFrame to a CSV file.
 
     :param df: DataFrame
     :type df: pandas DataFrame
     """
-    df.to_csv(os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                           "..",
-                                           "src",
-                                           "bslib_database.csv")), index=False)
+    export_path = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                               "..",
+                                               "src",
+                                               "bslib_database.csv"))
+    df.to_csv(export_path, index=False)
+
+    print(f"Database successfully created at {export_path}.")
 
 
-def convert_to_none(df):
+def convert_to_none(df: pd.DataFrame) -> pd.DataFrame:
     """This function converts certain values to numpy nan values.
 
     :param df: DataFrame
@@ -305,7 +312,7 @@ def convert_to_none(df):
     return df
 
 
-def eta2abc(parameter):
+def eta2abc(parameter: dict) -> dict:
     """Function to calculate the parameters of the power loss functions (quadratic equations) from the path efficiencies
 
     :param parameter: Holds parameters of the system
@@ -318,7 +325,8 @@ def eta2abc(parameter):
             or parameter['Top'] == 'AC' and parameter['P_PV2AC_out']:
         # Create variables for the sampling points and corresponding efficiencies TODO
         p_pv2ac = np.fromiter((value for key, value in parameter.items() if 'p_PV2AC_' in key and value), float)
-        eta_pv2ac = np.fromiter((value / 100 for key, value in parameter.items() if 'eta_PV2AC_' in key and value), float)
+        eta_pv2ac = np.fromiter((value / 100 for key, value in parameter.items() if 'eta_PV2AC_' in key and value),
+                                float)
 
         # Absolute input and output power in W
         p_pv2ac_out = parameter['P_PV2AC_out'] * p_pv2ac * 1000
@@ -464,7 +472,7 @@ def eta2abc(parameter):
     # Mean stationary deviation of the charging power in W
     try:
         parameter['P_PV2BAT_DEV'] = parameter['P_PV2BAT_DEV_IMPORT'] - parameter['P_PV2BAT_DEV_EXPORT']
-    except:
+    except TypeError:
         parameter['P_PV2BAT_DEV'] = None
 
     if parameter['Top'] == 'AC':
@@ -473,13 +481,13 @@ def eta2abc(parameter):
         # Mean stationary deviation of the discharging power in W
     try:
         parameter['P_BAT2AC_DEV'] = parameter['P_BAT2AC_DEV_EXPORT'] - parameter['P_BAT2AC_DEV_IMPORT']
-    except:
+    except TypeError:
         parameter['P_BAT2AC_DEV'] = None
 
     # Time constant for the first-order time delay element in s
     try:
         parameter['t_CONSTANT'] = (parameter['t_SETTLING'] - round(parameter['t_DEAD'])) / 3
-    except :
+    except TypeError:
         parameter['t_CONSTANT'] = None
 
     # Hysteresis threshold for the recharging of the battery
@@ -491,7 +499,7 @@ def eta2abc(parameter):
     return parameter
 
 
-def main():
+def main() -> None:
     """
     This is the main function which gets called when this module gets called
     when this module is executed as a script.
