@@ -2,7 +2,7 @@
 import os
 from enum import Enum, auto
 from math import sqrt
-from typing import Union, NamedTuple
+from typing import NamedTuple, Optional
 import pandas as pd  # type: ignore
 import numpy as np
 
@@ -43,6 +43,7 @@ def load_parameters(system_id: str) -> dict:
 
 
 def load_database():
+    """This function returns the entire database as a pandas DataFrame."""
     return pd.read_csv(os.path.abspath(os.path.join(os.path.dirname(__file__),
                                                     "..",
                                                     "src",
@@ -121,7 +122,7 @@ class ACBatMod:
         # Stores the state of the battery
         self.state = BatteryState
 
-    def __avoid_overcharging(self, p_bs: float, e_b0: float, dt: int) -> float:
+    def avoid_overcharging(self, p_bs: float, e_b0: float, dt: int) -> float:
         """This method avoids overcharging the battery in both ways."""
         # Estimated amount of energy in Wh that is supplied to or discharged from the storage unit.
         e_bs_est = p_bs * dt / 3600
@@ -134,7 +135,7 @@ class ACBatMod:
 
         return p_bs
 
-    def __adjust_to_stationary_deviations(self, p_bs: float) -> float:
+    def adjust_to_stationary_deviations(self, p_bs: float) -> float:
         """This method adjusts the AC power of the battery to the stationary deviations."""
         if p_bs > self._P_AC2BAT_MIN:
             return max(self._P_AC2BAT_MIN, p_bs + self._P_AC2BAT_DEV)
@@ -145,7 +146,7 @@ class ACBatMod:
         else:
             return 0.0
 
-    def __get_battery_state(self, p_bs: float, soc: float) -> Union[BatteryState, None]:
+    def get_battery_state(self, p_bs: float, soc: float) -> Optional[BatteryState]:
         """This method determines the condition of the battery."""
         if p_bs > 0 and soc < 1 - self._threshold * (1 - self._SOC_THRESHOLD):
             # The last term th*(1-SOC_h) avoids the alternation between
@@ -159,7 +160,7 @@ class ACBatMod:
         else:
             return None
 
-    def __charge_battery(self, p_bs: float) -> float:
+    def charge_battery(self, p_bs: float) -> float:
         """This method determines with how much energy the battery will be charged."""
         # Normalized AC power of the battery system
         p_bs_norm = p_bs / self._P_AC2BAT_IN / 1000
@@ -170,7 +171,7 @@ class ACBatMod:
                               + self._AC2BAT_B_IN * p_bs_norm
                               + self._AC2BAT_C_IN))
 
-    def __discharge_battery(self, p_bs: float) -> float:
+    def discharge_battery(self, p_bs: float) -> float:
         """This method determines with how much energy the battery will be discharged."""
         # Normalized AC power of the battery system
         p_bs_norm = abs(p_bs / self._P_BAT2AC_OUT / 1000)
@@ -181,7 +182,7 @@ class ACBatMod:
                        + self._BAT2AC_B_OUT * p_bs_norm
                        + self._BAT2AC_C_OUT)
 
-    def __standby_mode(self, soc: float) -> tuple[float, float]:
+    def standby_mode(self, soc: float) -> tuple[float, float]:
         """This method determines which standby mode the battery system is in."""
         if soc <= 0:  # Standby mode in discharged state
             # AC and DC power consumption of the battery converter in W
@@ -195,7 +196,7 @@ class ACBatMod:
 
         return p_bs, p_bat
 
-    def __change_battery_content(self, p_bat: float, e_b0: float, dt: int) -> float:
+    def change_battery_content(self, p_bat: float, e_b0: float, dt: int) -> float:
         """This method determines the energy content of the battery."""
         # Change the energy content of the battery and conversion from Ws to Wh
         if p_bat > 0:  # Charging
@@ -235,35 +236,35 @@ class ACBatMod:
         e_b0 = soc * self._E_BAT
 
         # Check if the battery holds enough unused capacity for charging or discharging
-        p_bs = self.__avoid_overcharging(p_bs, e_b0, dt)
+        p_bs = self.avoid_overcharging(p_bs, e_b0, dt)
 
         # Adjust the AC power of the battery system due to the stationary
         # deviations, taking the minimum charging and discharging power into
         # account
-        p_bs = self.__adjust_to_stationary_deviations(p_bs)
+        p_bs = self.adjust_to_stationary_deviations(p_bs)
 
         # Limit the AC power of the battery system to the rated power of the
         # battery converter
         p_bs = max(-self._P_BAT2AC_OUT * 1000,
                    min(self._P_AC2BAT_IN * 1000, p_bs))
 
-        battery_state = self.__get_battery_state(p_bs, soc)
+        battery_state = self.get_battery_state(p_bs, soc)
 
         if battery_state == self.state.CHARGING:
-            p_bat = self.__charge_battery(p_bs)
+            p_bat = self.charge_battery(p_bs)
 
         elif battery_state == self.state.DISCHARGING:
-            p_bat = self.__discharge_battery(p_bs)
+            p_bat = self.discharge_battery(p_bs)
 
         else:  # Neither charging nor discharging of the battery
             p_bat = 0.0
 
         # Check if the battery system is in standby mode
         if p_bat == 0:
-            p_bs, p_bat = self.__standby_mode(soc)
+            p_bs, p_bat = self.standby_mode(soc)
 
         # Change the energy content of the battery and conversion from Ws to Wh
-        e_b = self.__change_battery_content(p_bat, e_b0, dt)
+        e_b = self.change_battery_content(p_bat, e_b0, dt)
 
         # Calculate the resulting state of charge of the battery
         soc = e_b / self._E_BAT
@@ -275,14 +276,6 @@ class ACBatMod:
 
         # Outputs
         return self._Results(p_bs=p_bs, p_bat=p_bat, soc=soc)
-
-
-# Check in DCBATMOD if when discharging the value has to be negative
-"""
-# When discharging take the correction factor into account
-        elif E_bs_r < 0 and np.abs(E_bs_r) > E_b0:
-            P_r = !!!-!!!(E_b0 * 3600 / _dt) * (1 - corr)
-"""
 
 
 class DCBatMod:
@@ -427,7 +420,7 @@ class DCBatMod:
 
         return p_r, p_rpv
 
-    def __get_battery_state(self, p_rpv: float, soc: float) -> Union[BatteryState, None]:
+    def __get_battery_state(self, p_rpv: float, soc: float) -> Optional[BatteryState]:
         """This method determines the condition of the battery."""
         if p_rpv > 0 and soc < 1 - self._threshold * (1 - self._SOC_THRESHOLD):
             '''The last term th*(1-SOC_h) avoids the alternation between
@@ -593,4 +586,3 @@ if __name__ == "__main__":
     result = ac_battery.simulate(p_load=500, soc=0.0, dt=1)
     dc_battery = DCBatMod("S3")
     result = dc_battery.simulation(p_load=500, p_pv=350, soc=0, dt=1)
-
