@@ -8,9 +8,11 @@ def test_acbatmod_avoid_overcharging_charging():
     ac_bat._E_BAT = 1.0
     assert ac_bat.avoid_overcharging(p_bs=3600, e_b0=1, dt=1) == 0.0
 
+
 def test_acbatmod_avoid_overcharging_discharging():
     ac_bat = bsl.ACBatMod('S2')
     assert ac_bat.avoid_overcharging(p_bs=-2*3600, e_b0=1.0, dt=1) == -3240.0
+
 
 def test_acbatmod_adjust_to_stationary_deviations():
     ac_bat = bsl.ACBatMod('S2')
@@ -26,6 +28,7 @@ def test_acbatmod_get_battery_state():
     assert ac_bat.get_battery_state(-1.0, 1.0) == bsl.BatteryState.DISCHARGING
     assert ac_bat.get_battery_state(0.0, 0.0) is None
 
+
 def test_acbatmod_charge_battery():
     ac_bat = bsl.ACBatMod('S2')
     assert ac_bat.charge_battery(p_bs=1500.0) == 1430.458346868159
@@ -35,10 +38,12 @@ def test_acbatmod_discharge_battery():
     ac_bat = bsl.ACBatMod('S2')
     assert ac_bat.discharge_battery(p_bs=-1500.0) == -1574.7343399810065
 
+
 def test_acbatmod_standy_mode():
     ac_bat = bsl.ACBatMod('S2')
     assert ac_bat.standby_mode(soc=0) == (12.1, 0)
     assert ac_bat.standby_mode(soc=1) == (14.9, -0.1)
+
 
 def test_acbatmod_change_battery_content():
     ac_bat = bsl.ACBatMod('S2')
