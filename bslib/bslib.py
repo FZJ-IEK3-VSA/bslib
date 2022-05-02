@@ -22,8 +22,6 @@ def load_parameters(system_id: str) -> dict:
     """
 
     database = pd.read_csv(os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                                        "..",
-                                                        "src",
                                                         "bslib_database.csv")))
 
     if system_id in database.ID.values:
@@ -581,8 +579,8 @@ class DCBatMod:
         return self._Results(p_pvbs=p_pvbs, p_bat=p_bat, soc=soc)
 
 
-if __name__ == "__main__":
-    ac_battery = ACBatMod("S2")
-    result = ac_battery.simulate(p_load=500, soc=0.0, dt=1)
-    dc_battery = DCBatMod("S3")
-    result = dc_battery.simulation(p_load=500, p_pv=350, soc=0, dt=1)
+#if __name__ == "__main__":
+#    ac_battery = ACBatMod("S2")
+#    result = ac_battery.simulate(p_load=500, soc=0.0, dt=1)
+#    dc_battery = DCBatMod("S3")
+#    result = dc_battery.simulation(p_load=500, p_pv=350, soc=0, dt=1)

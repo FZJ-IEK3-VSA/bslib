@@ -1,5 +1,5 @@
 import pytest
-import src.bslib as bsl
+import bslib.bslib as bsl
 
 
 def test_acbatmod_avoid_overcharging(ac_bat):
