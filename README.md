@@ -5,11 +5,11 @@ Repository with code to
 - build a **database** with relevant data from PerMod database (HTW Berlin) and "Stromspeicher-Inspektion"
 - **simulate** ac- and dc-coupled battery storages with regards to electrical power (ac and dc) and state-of-charge as timeseries.
 
-For the simulation, it is possible to calculate outputs of a **specific manufacturer + model** or alternatively for one of **2 different generic battery types**. 
+For the simulation, it is possible to calculate outputs of a **specific manufacturer + model** or alternatively for one of **2 different generic battery storage types**. 
 
 **For reference purposes:**
 - DOI: 
-- Citation: Tjarko Tjaden, Kai Rösken,Hauke Hoops. (2022). RE-Lab-Projects/bslib: battery storage library (v0.1). Zenodo. https://doi
+- Citation: Tjarko Tjaden, Kai Rösken,Hauke Hoops. (2022). RE-Lab-Projects/bslib: battery storage library (v0.1). Zenodo.
 
 ## Documentation
 
@@ -36,7 +36,6 @@ The bslib_database.csv contains the following number of battery storages, sorted
 | [S_ac]: 2 | AC-coupled |
 | [S_dc]: 3 | DC-coupled |
 | [INV]: 2 | PV Inverter |
-
 
 ## Database
 
