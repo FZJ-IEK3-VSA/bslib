@@ -8,8 +8,8 @@ Repository with code to
 For the simulation, it is possible to calculate outputs of a **specific manufacturer + model** or alternatively for one of **2 different generic battery storage types**. 
 
 **For reference purposes:**
-- DOI: 
-- Citation: Tjarko Tjaden, Kai Rösken,Hauke Hoops. (2022). RE-Lab-Projects/bslib: battery storage library (v0.1). Zenodo.
+- DOI: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6514527.svg)](https://doi.org/10.5281/zenodo.6514527)
+- Citation: Kai Rösken, Tjarko Tjaden, & Hauke Hoops. (2022). RE-Lab-Projects/bslib: v0.1. Zenodo. https://doi.org/10.5281/zenodo.6514527
 
 ## Documentation
 
