@@ -3,32 +3,35 @@
 Repository with code to
  
 - build a **database** with relevant data from PerMod database (HTW Berlin) and "Stromspeicher-Inspektion"
-- **simulate** ac-, dc- and pv-generator coupled battery storages with regards to electrical power (ac and dc) and state-of-charge as timeseries.
+- **simulate** ac- and dc-coupled battery storages with regards to electrical power (ac and dc) and state-of-charge as timeseries.
 
-For the simulation, it is possible to calculate outputs of a **specific manufacturer + model** or alternatively for one of **3 different generic battery types**. 
+For the simulation, it is possible to calculate outputs of a **specific manufacturer + model** or alternatively for one of **2 different generic battery types**. 
 
 ## Documentation
 
-For a basic understanding of is *bslib* have a look into the Documentation [HTML] or [Jupyter-Notebook]. There you also find a **simulation examples**.
+The documentation is still under development.
 
 ## Usage
 
-Download or clone repository:
+Simply install via
 
-`git clone https://github.com/RE-Lab-Projects/bslib.git`
+- `pip install bslib`
 
-Create the environment:
+or clone repository and create environment via:
 
-`conda env create --name bslib --file requirements.txt`
+- `git clone https://github.com/RE-Lab-Projects/bslib.git`
+- `conda env create --name bslib --file requirements.txt`
 
-Create some code with `import bslib` and use the included functions `load_database`, `get_parameters` and `simulate`.
+Afterwards you're able to create some code with `import bslib` and use the included functions `load_database`, `get_parameters` and `simulate`.
 
 ## Battery models and Group IDs
-The hplib_database.csv contains the following number of heat pump models, sorted by Group ID
+The bslib_database.csv contains the following number of battery storages, sorted by Group ID
 
 | [Group ID]: Count | Description |
 | :--- | :--- |
-| AC-coupled | [..]: .. | [.: 23 |
+| [S_ac]: 2 | AC-coupled |
+| [S_dc]: 3 | DC-coupled |
+| [INV]: 2 | PV Inverter |
 
 
 ## Database
@@ -43,10 +46,5 @@ The following columns are available for every heat pump of this library
 
 
 ## Input-Data and further development
-...
 
-**Further development | Possibilities to collaborate**
-
-...
-
-If you find errors or are interested in develop the hplib, please create an ISSUE and/or FORK this repository and create a PULL REQUEST.
+If you find errors or are interested in develop the bslib, please create an ISSUE and/or FORK this repository and create a PULL REQUEST.
