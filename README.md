@@ -9,7 +9,7 @@ For the simulation, it is possible to calculate outputs of a **specific manufact
 
 **For reference purposes:**
 - DOI: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6514527.svg)](https://doi.org/10.5281/zenodo.6514527)
-- Citation: Kai Rösken, Tjarko Tjaden, & Hauke Hoops. (2022). RE-Lab-Projects/bslib: v0.1. Zenodo. https://doi.org/10.5281/zenodo.6514527
+- Citation: Kai Rösken, Tjarko Tjaden, & Hauke Hoops. (2022). RE-Lab-Projects/bslib: v0.3. Zenodo. https://doi.org/10.5281/zenodo.6514527
 
 ## Documentation
 
@@ -41,7 +41,7 @@ The bslib_database.csv contains the following number of battery storages, sorted
 
 All resulting database CSV file are under [![License: CC BY 4.0](https://img.shields.io/badge/License-CC%20BY%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by/4.0/).
 
-The following columns are available for every heat pump of this library
+The following columns are available for every battery storage of this library
 
 | Column | Description | Comment |
 | :--- | :--- | :--- |
