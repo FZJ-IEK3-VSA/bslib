@@ -44,7 +44,7 @@ def load_database():
     """This function returns the entire database as a pandas DataFrame."""
     return pd.read_csv(os.path.abspath(os.path.join(os.path.dirname(__file__),
                                                     "..",
-                                                    "src",
+                                                    "bslib",
                                                     "bslib_database.csv")))
 
 
@@ -54,9 +54,9 @@ class ACBatMod:
 
         :param system_id: Parameters of the battery system
         :type system_id: dict
-        :param p_inv_custom: Custom values for the PV inverter when using a generic system
+        :param p_inv_custom: Custom PV inverter power in W when using a generic system
         :type p_inv_custom: float
-        :param e_bat_custom: Custom value for the battery capacity when using a generic system
+        :param e_bat_custom: Custom battery capacity in kWh when using a generic system
         :type e_bat_custom: float
         """
         # Load system parameter according to the given system id
@@ -70,8 +70,8 @@ class ACBatMod:
 
         # System sizing
         self._E_BAT: float = self.__parameter['E_BAT'] * 1000  # Mean usable battery capacity in Wh
-        self._P_AC2BAT_IN = self.__parameter['P_AC2BAT_in']  # Nominal AC charging power in kW
-        self._P_BAT2AC_OUT = self.__parameter['P_BAT2AC_out']  # Nominal AC discharging power in kW
+        self._P_AC2BAT_IN = self.__parameter['P_AC2BAT_in']  # Nominal AC charging power in W
+        self._P_BAT2AC_OUT = self.__parameter['P_BAT2AC_out']  # Nominal AC discharging power in W
 
         # Conversion losses
         self._ETA_BAT = self.__parameter['eta_BAT'] / 100  # Mean battery efficiency from 0 to 1 representing 0 to 100%
@@ -98,18 +98,20 @@ class ACBatMod:
         self._P_SYS_SOC1_AC = self.__parameter['P_SYS_SOC1_AC']  # Standby AC power consumption in charged state in W
         self._P_PERI_AC = self.__parameter['P_PERI_AC']  # AC power consumption of other system components in W
 
-        if self.__parameter['Manufacturer (PE)'] == 'Generic':
-            self._P_AC2BAT_IN = p_inv_custom  # Custom inverter power in kW
-            self._P_BAT2AC_OUT = p_inv_custom  # Custom inverter power in kW
-            # Custom battery capacity Wh
-            self._E_BAT = e_bat_custom * 1000  # type: ignore
-            self._P_SYS_SOC1_DC = self._P_SYS_SOC1_DC * self._E_BAT
-            self._P_SYS_SOC1_AC = self._P_SYS_SOC1_AC * self._P_BAT2AC_OUT
-
         # Minimum AC charging power
         self._P_AC2BAT_MIN = self._AC2BAT_C_IN
         # Minimum AC discharging power
         self._P_BAT2AC_MIN = self._BAT2AC_C_OUT
+
+        if self.__parameter['Manufacturer (PE)'] == 'Generic':
+            # Custom inverter power in W
+            self._P_AC2BAT_IN = p_inv_custom  
+            self._P_BAT2AC_OUT = p_inv_custom
+            # Custom battery capacity Wh
+            self._E_BAT = e_bat_custom * 1000
+            # Custom mininal charging and discharging power
+            self._P_AC2BAT_MIN = self._AC2BAT_C_IN * (p_inv_custom/1000)
+            self._P_BAT2AC_MIN = self._BAT2AC_C_OUT * (p_inv_custom/1000)
 
         # Correction factor to avoid overcharging of the battery
         self._CORR_FACTOR = 0.1
@@ -161,23 +163,33 @@ class ACBatMod:
     def charge_battery(self, p_bs: float) -> float:
         """This method determines with how much energy the battery will be charged."""
         # Normalized AC power of the battery system
-        p_bs_norm = p_bs / self._P_AC2BAT_IN / 1000
+        self.p_bs_norm = p_bs / self._P_AC2BAT_IN
 
         # DC power of the battery affected by the AC2BAT conversion losses
         # of the battery converter in W
-        return max(0, p_bs - (self._AC2BAT_A_IN * p_bs_norm * p_bs_norm
-                              + self._AC2BAT_B_IN * p_bs_norm
+        if self.__parameter['Manufacturer (PE)'] == 'Generic':
+            return max(0, p_bs - (self._AC2BAT_A_IN * self.p_bs_norm * self.p_bs_norm
+                              + self._AC2BAT_B_IN * self.p_bs_norm
+                              + self._AC2BAT_C_IN)*(self._P_AC2BAT_IN/1000))
+        else:
+            return max(0, p_bs - (self._AC2BAT_A_IN * self.p_bs_norm * self.p_bs_norm
+                              + self._AC2BAT_B_IN * self.p_bs_norm
                               + self._AC2BAT_C_IN))
 
     def discharge_battery(self, p_bs: float) -> float:
         """This method determines with how much energy the battery will be discharged."""
         # Normalized AC power of the battery system
-        p_bs_norm = abs(p_bs / self._P_BAT2AC_OUT / 1000)
+        self.p_bs_norm = abs(p_bs / self._P_BAT2AC_OUT)
 
         # DC power of the battery affected by the BAT2AC conversion losses
         # of the battery converter in W
-        return p_bs - (self._BAT2AC_A_OUT * p_bs_norm * p_bs_norm
-                       + self._BAT2AC_B_OUT * p_bs_norm
+        if self.__parameter['Manufacturer (PE)'] == 'Generic':
+            return p_bs - (self._BAT2AC_A_OUT * self.p_bs_norm * self.p_bs_norm
+                       + self._BAT2AC_B_OUT * self.p_bs_norm
+                       + self._BAT2AC_C_OUT)*(self._P_BAT2AC_OUT/1000)
+        else:
+            return p_bs - (self._BAT2AC_A_OUT * self.p_bs_norm * self.p_bs_norm
+                       + self._BAT2AC_B_OUT * self.p_bs_norm
                        + self._BAT2AC_C_OUT)
 
     def standby_mode(self, soc: float) -> tuple[float, float]:
@@ -243,8 +255,8 @@ class ACBatMod:
 
         # Limit the AC power of the battery system to the rated power of the
         # battery converter
-        p_bs = max(-self._P_BAT2AC_OUT * 1000,
-                   min(self._P_AC2BAT_IN * 1000, p_bs))
+        p_bs = max(-self._P_BAT2AC_OUT,
+                   min(self._P_AC2BAT_IN, p_bs))
 
         battery_state = self.get_battery_state(p_bs, soc)
 
@@ -318,10 +330,10 @@ class DCBatMod:
 
         # System sizing
         self._E_BAT = self.__parameter["E_BAT"] * 1000  # Mean battery capacity in Wh
-        self._P_PV2AC_IN = self.__parameter["P_PV2AC_in"]  # Rated PV input power (DC) in kW
-        self._P_PV2AC_OUT = self.__parameter["P_PV2AC_out"]  # Rated PV output power (AC) in kW
-        self._P_PV2BAT_IN = self.__parameter["P_PV2BAT_in"]  # Nominal input charging power (DC) in kW
-        self._P_BAT2AC_OUT = self.__parameter["P_BAT2AC_out"]  # Nominal discharging power (AC) in kW
+        self._P_PV2AC_IN = self.__parameter["P_PV2AC_in"]  # Rated PV input power (DC) in W
+        self._P_PV2AC_OUT = self.__parameter["P_PV2AC_out"]  # Rated PV output power (AC) in W
+        self._P_PV2BAT_IN = self.__parameter["P_PV2BAT_in"]  # Nominal input charging power (DC) in W
+        self._P_BAT2AC_OUT = self.__parameter["P_BAT2AC_out"]  # Nominal discharging power (AC) in W
 
         # Conversion losses
         self._eta_BAT = self.__parameter["eta_BAT"] / 100  # Mean battery efficiency in %
@@ -354,10 +366,10 @@ class DCBatMod:
         self._P_PERI_AC = self.__parameter["P_PERI_AC"]  # AC power consumption of other system components in W
 
         if self.__parameter['Manufacturer (PE)'] == 'Generic':
-            self._P_PV2AC_IN = p_inv_custom  # in kW
-            self._P_PV2AC_OUT = p_inv_custom  # in kW
-            self._P_PV2BAT_IN = p_inv_custom  # in kW
-            self._P_BAT2AC_OUT = p_inv_custom  # in kW
+            self._P_PV2AC_IN = p_inv_custom  # in W
+            self._P_PV2AC_OUT = p_inv_custom  # in W
+            self._P_PV2BAT_IN = p_inv_custom  # in W
+            self._P_BAT2AC_OUT = p_inv_custom  # in W
             self._E_BAT = e_bat_custom * 1000  # Custom battery capacity in Wh
             self._P_SYS_SOC1_DC = self._P_SYS_SOC1_DC * self._E_BAT
             self._P_SYS_SOC1_AC = self._P_SYS_SOC1_AC * self._P_BAT2AC_OUT
@@ -373,21 +385,21 @@ class DCBatMod:
     def __get_residual_power(self, p_load: float, p_pv: float) -> tuple[float, float, float, float]:
         """This method determines the residual power."""
         # Output of the PV generator limited to the maximum DC input power of the PV2AC conversion pathway
-        p_pv_limited = min(p_pv, self._P_PV2AC_IN * 1000)
+        p_pv_limited = min(p_pv, self._P_PV2AC_IN)
 
         # Power demand on the AC side of the battery system respecting the power consumption of other system components
         p_ac = p_load + self._P_PERI_AC
 
         # Normalized AC output power of the PV2AC conversion pathway to cover the AC power demand
-        ppv2ac_ac_out_norm = min(p_ac, self._P_PV2AC_OUT * 1000) / self._P_PV2AC_OUT / 1000
+        ppv2ac_ac_out_norm = min(p_ac, self._P_PV2AC_OUT) / self._P_PV2AC_OUT
 
         # Target DC input power of the PV2AC conversion pathway
-        p_pv2ac_dc_in = min(p_ac, self._P_PV2AC_OUT * 1000) + (self._PV2AC_A_OUT * ppv2ac_ac_out_norm * ppv2ac_ac_out_norm
+        p_pv2ac_dc_in = min(p_ac, self._P_PV2AC_OUT) + (self._PV2AC_A_OUT * ppv2ac_ac_out_norm * ppv2ac_ac_out_norm
                                                                + self._PV2AC_B_OUT * ppv2ac_ac_out_norm
                                                                + self._PV2AC_C_OUT)
 
         # Normalized DC input power of the PV2AC conversion pathway
-        ppv2ac_dc_in_norm = p_pv_limited / self._P_PV2AC_IN / 1000
+        ppv2ac_dc_in_norm = p_pv_limited / self._P_PV2AC_IN
 
         # Target AC output power of the PV2AC conversion pathway
         p_pv2ac_ac_out = max(0, p_pv_limited - (self._PV2AC_A_IN * ppv2ac_dc_in_norm * ppv2ac_dc_in_norm
@@ -441,13 +453,13 @@ class DCBatMod:
         p_pv2bat_in = max(0, p_pv2bat_in + self._P_PV2BAT_DEV)
 
         # Limit the charging power to the maximum charging power
-        p_pv2bat_in = min(p_pv2bat_in, self._P_PV2BAT_IN * 1000)
+        p_pv2bat_in = min(p_pv2bat_in, self._P_PV2BAT_IN)
 
         # Limit the charging power to the current power output of the PV generator
         p_pv2bat_in = min(p_pv2bat_in, p_pv_limited)
 
         # Normalized charging power
-        p_pv2bat_norm = p_pv2bat_in / self._P_PV2BAT_IN / 1000
+        p_pv2bat_norm = p_pv2bat_in / self._P_PV2BAT_IN
 
         # DC power of the battery affected by the PV2BAT conversion losses
         # (the idle losses of the PV2BAT conversion pathway are not taken
@@ -459,7 +471,7 @@ class DCBatMod:
         p_pv2ac_dc_in = p_pv_limited - p_pv2bat_in
 
         # Normalized DC input power of the PV2AC conversion pathway
-        p_pv2ac_dc_in_norm = p_pv2ac_dc_in / self._P_PV2AC_IN / 1000
+        p_pv2ac_dc_in_norm = p_pv2ac_dc_in / self._P_PV2AC_IN
 
         # Realized AC power of the PV-battery system
         p_pvbs = max(0, p_pv2ac_dc_in - (self._PV2AC_A_IN * p_pv2ac_dc_in_norm * p_pv2ac_dc_in_norm
@@ -476,13 +488,13 @@ class DCBatMod:
         p_bat2ac_out = max(0, p_bat2ac_out + self._P_BAT2AC_DEV)
 
         # Adjust the discharging power to the maximum discharging power
-        p_bat2ac_out = min(p_bat2ac_out, self._P_BAT2AC_OUT * 1000)
+        p_bat2ac_out = min(p_bat2ac_out, self._P_BAT2AC_OUT)
 
         # Limit the discharging power to the maximum AC power output of the PV-battery system
-        p_bat2ac_out = min(self._P_PV2AC_OUT * 1000 - p_pv2ac_ac_out, p_bat2ac_out)
+        p_bat2ac_out = min(self._P_PV2AC_OUT - p_pv2ac_ac_out, p_bat2ac_out)
 
         # Normalized discharging power
-        p_pv2bat_norm = p_bat2ac_out / self._P_BAT2AC_OUT / 1000
+        p_pv2bat_norm = p_bat2ac_out / self._P_BAT2AC_OUT
 
         # DC power of the battery affected by the BAT2AC conversion losses
         # (if the idle losses of the PV2AC conversion pathway are covered by
