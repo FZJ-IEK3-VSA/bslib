@@ -9,7 +9,7 @@ For the simulation, it is possible to calculate outputs of a **specific manufact
 
 **For reference purposes:**
 - DOI: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6514527.svg)](https://doi.org/10.5281/zenodo.6514527)
-- Citation: Kai Rösken, Tjarko Tjaden, & Hauke Hoops. (2022). RE-Lab-Projects/bslib: v0.3. Zenodo. https://doi.org/10.5281/zenodo.6514527
+- Citation: Kai Rösken, Tjarko Tjaden, & Hauke Hoops. (2022). RE-Lab-Projects/bslib: v0.5. Zenodo. https://doi.org/10.5281/zenodo.6514527
 
 ## Documentation
 
