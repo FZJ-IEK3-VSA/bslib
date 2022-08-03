@@ -285,7 +285,7 @@ def export_to_csv(df: pd.DataFrame) -> None:
     """
     export_path = os.path.abspath(os.path.join(os.path.dirname(__file__),
                                                "..",
-                                               "src",
+                                               "bslib",
                                                "bslib_database.csv"))
     df.to_csv(export_path, index=False)
 
