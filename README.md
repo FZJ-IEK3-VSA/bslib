@@ -13,7 +13,7 @@ For the simulation, it is possible to calculate outputs of a **specific manufact
 
 **For reference purposes:**
 - DOI: https://doi.org/10.5281/zenodo.6514527
-- Citation: Kai Rösken, Tjarko Tjaden, & Hauke Hoops. (2022). RE-Lab-Projects/bslib: v0.7. Zenodo. https://doi.org/10.5281/zenodo.6514527
+- Citation: Kai Rösken, Tjarko Tjaden, & Hauke Hoops. (2022). FZJ-IEK3-VSA/bslib: v0.7. Zenodo. https://doi.org/10.5281/zenodo.6514527
 
 ## Documentation
 
@@ -27,7 +27,7 @@ Simply install via
 
 or clone repository and create environment via:
 
-- `git clone https://github.com/RE-Lab-Projects/bslib.git`
+- `git clone https://github.com/FZJ-IEK3-VSA/bslib.git`
 - `conda env create --name bslib --file requirements.txt`
 
 Afterwards you're able to create some code with `import bslib` and use the included functions `load_database`, `get_parameters` and `simulate`.
